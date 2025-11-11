@@ -1,0 +1,9 @@
+.idea/
+/target/
+/**/target/
+/**/*.rs.bk
+
+.SD_Store
+.env
+.log
+.sqlx
