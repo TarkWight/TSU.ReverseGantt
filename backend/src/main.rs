@@ -5,11 +5,11 @@ use axum::{routing::get, Router};
 async fn main() {
     let app = Router::new().route("/", get(root));
 
-    let listner = TcpListener::bind("127.0.0.1:8080")
+    let listener  = TcpListener::bind("127.0.0.1:8080")
         .await
         .expect("bind failed");
 
-    axum::serve(listner, app)
+    axum::serve(listener , app)
         .await
         .expect("server error");
 
