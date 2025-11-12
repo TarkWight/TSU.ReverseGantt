@@ -7,4 +7,5 @@ authors = ["Arsentiy Gonda"]
 [dependencies]
 axum = { version = "0.8.6", features = ["macros", "json"] }
 serde = { version = "1.0.228", features = ["derive"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "signal"] }
