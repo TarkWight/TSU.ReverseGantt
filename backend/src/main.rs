@@ -22,6 +22,7 @@ async fn main() {
         .expect("bind failed");
 
     axum::serve(listener , app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("server error");
 
@@ -29,4 +30,29 @@ async fn main() {
 
 async fn root() -> &'static str {
     "Reverse Gantt API"
+}
+
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+
+        let mut sigterm = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+        let mut sigint  = signal(SignalKind::interrupt()).expect("failed to install SIGINT handler");
+
+        tokio::select! {
+            _ = sigterm.recv() => {
+                tracing::info!("Received SIGTERM, shutting down");
+            },
+            _ = sigint.recv() => {
+                tracing::info!("Received SIGINT (Ctrl+C), shutting down");
+            },
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+        tracing::info!("Received Ctrl+C, shutting down");
+    }
 }
