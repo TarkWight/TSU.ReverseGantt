@@ -1,8 +1,10 @@
 use tokio::net::TcpListener;
 use axum::{routing::get, Router};
+use dotenvy::dotenv;
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     let app = Router::new().route("/", get(root));
 
     let listener  = TcpListener::bind("127.0.0.1:8080")
