@@ -1,5 +1,6 @@
 use tokio::net::TcpListener;
-use axum::{routing::get, Router};
+use axum::{routing::get, Json, Router};
+use serde::Serialize;
 use dotenvy::dotenv;
 use std::{env, net::SocketAddr};
 
@@ -7,7 +8,9 @@ use std::{env, net::SocketAddr};
 async fn main() {
     dotenv().ok();
 
-    let app = Router::new().route("/", get(root));
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/health", get(health_check));
 
     let bind = env::var("BIND").ok().unwrap_or_else( || {
         let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".into());
@@ -28,6 +31,18 @@ async fn main() {
 
 }
 
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    service: &'static str,
+}
+
+async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "ok",
+        service: "reverse-gantt-backend",
+    })
+}
 async fn root() -> &'static str {
     "Reverse Gantt API"
 }
