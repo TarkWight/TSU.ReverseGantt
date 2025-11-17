@@ -1,26 +1,25 @@
-use tokio::net::TcpListener;
+mod config;
+
 use axum::{routing::get, Json, Router};
-use serde::Serialize;
 use dotenvy::dotenv;
-use std::{env, net::SocketAddr};
+use serde::Serialize;
+use tokio::net::TcpListener;
+use std::net::SocketAddr;
+
+use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
 
+    let config = Config::from_env()?;
+    let addr: SocketAddr = config.bind_address().parse()?;
+
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check));
 
-    let bind = env::var("BIND").ok().unwrap_or_else( || {
-        let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".into());
-        let port: u16 = env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8080);
-        format!("{host}:{port}")
-
-    });
-    let addr: SocketAddr = bind.parse().expect("invalid BIND/HOST/PORT");
-
-    let listener  = TcpListener::bind(addr)
+    let listener = TcpListener::bind(addr)
         .await
         .expect("bind failed");
 
@@ -43,6 +42,7 @@ async fn health_check() -> Json<HealthResponse> {
         service: "reverse-gantt-backend",
     })
 }
+
 async fn root() -> &'static str {
     "Reverse Gantt API"
 }
