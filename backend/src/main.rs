@@ -1,4 +1,5 @@
 mod config;
+mod db;
 
 use axum::{routing::get, Json, Router};
 use dotenvy::dotenv;
@@ -14,6 +15,8 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::from_env()?;
     let addr: SocketAddr = config.bind_address().parse()?;
+
+    let pool = db::create_pool(&config.database.url).await?;
 
     let app = Router::new()
         .route("/", get(root))
