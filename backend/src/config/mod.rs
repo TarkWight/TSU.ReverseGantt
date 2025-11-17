@@ -34,4 +34,8 @@ impl Config {
             },
         })
     }
+
+    pub fn bind_address(&self) -> String {
+        format!("{}:{}", self.server.host, self.server.port)
+    }
 }
