@@ -5,7 +5,7 @@ use dotenvy::dotenv;
 use std::{env, net::SocketAddr};
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     dotenv().ok();
 
     let app = Router::new()
@@ -24,11 +24,11 @@ async fn main() {
         .await
         .expect("bind failed");
 
-    axum::serve(listener , app)
+    axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
-        .await
-        .expect("server error");
+        .await?;
 
+    Ok(())
 }
 
 #[derive(Serialize)]
