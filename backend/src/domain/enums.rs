@@ -204,3 +204,10 @@ pub enum ProjectRole {
     Student,
     Teacher,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssignRole {
+    Owner,
+    Assignee,
+}
