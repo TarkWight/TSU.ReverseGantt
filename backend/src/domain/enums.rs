@@ -73,3 +73,12 @@ impl std::str::FromStr for TaskStatus {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Priority {
+    Low,
+    Normal,
+    High,
+    Critical,
+}
