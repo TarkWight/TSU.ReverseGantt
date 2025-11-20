@@ -1,3 +1,5 @@
+/* TODO: refactor enums into a module with separate files for each enum */
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
