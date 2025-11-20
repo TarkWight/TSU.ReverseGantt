@@ -25,4 +25,7 @@ pub struct Task {
     pub progress: i32, // 0-100
     // Buffer and hardness
     pub buffer: i64,   // Buffer in seconds
+    pub hardness: Hardness,
+    // Deadline
+    pub deadline: Option<DateTime<Utc>>,
 }
