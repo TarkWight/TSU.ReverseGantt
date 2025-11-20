@@ -1,6 +1,7 @@
 mod config;
 mod db;
-
+mod domain;
+mod utils;
 use axum::{routing::get, Json, Router};
 use dotenvy::dotenv;
 use serde::Serialize;
