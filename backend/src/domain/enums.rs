@@ -30,3 +30,15 @@ impl std::str::FromStr for TaskType {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskStatus {
+    Planned,
+    InProgress,
+    NeedsReview,
+    Accepted,
+    Rejected,
+    Blocked,
+    Done,
+}
