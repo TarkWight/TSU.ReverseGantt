@@ -93,3 +93,17 @@ impl std::fmt::Display for Priority {
         }
     }
 }
+
+impl std::str::FromStr for Priority {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Low" => Ok(Priority::Low),
+            "Normal" => Ok(Priority::Normal),
+            "High" => Ok(Priority::High),
+            "Critical" => Ok(Priority::Critical),
+            _ => Err(format!("Invalid Priority: {}", s)),
+        }
+    }
+}
