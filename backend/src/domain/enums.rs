@@ -82,3 +82,14 @@ pub enum Priority {
     High,
     Critical,
 }
+
+impl std::fmt::Display for Priority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Priority::Low => write!(f, "Low"),
+            Priority::Normal => write!(f, "Normal"),
+            Priority::High => write!(f, "High"),
+            Priority::Critical => write!(f, "Critical"),
+        }
+    }
+}
