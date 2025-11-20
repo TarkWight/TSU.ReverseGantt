@@ -107,3 +107,10 @@ impl std::str::FromStr for Priority {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Hardness {
+    Hard,
+    Soft,
+}
