@@ -17,3 +17,16 @@ impl std::fmt::Display for TaskType {
         }
     }
 }
+
+impl std::str::FromStr for TaskType {
+    type Err = String;
+
+    fn from_str(string: &str) -> Result<Self, Self::Err> {
+        match string {
+            "Final" => Ok(TaskType::Final),
+            "Milestone" => Ok(TaskType::Milestone),
+            "Task" => Ok(TaskType::Task),
+            _ => Err(format!("Invalid TaskType: {}", string)),
+        }
+    }
+}
