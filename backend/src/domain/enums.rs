@@ -197,3 +197,10 @@ impl std::str::FromStr for ReviewDecision {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectRole {
+    Student,
+    Teacher,
+}
