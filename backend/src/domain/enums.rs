@@ -123,3 +123,15 @@ impl std::fmt::Display for Hardness {
         }
     }
 }
+
+impl std::str::FromStr for Hardness {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Hard" => Ok(Hardness::Hard),
+            "Soft" => Ok(Hardness::Soft),
+            _ => Err(format!("Invalid Hardness: {}", s)),
+        }
+    }
+}
