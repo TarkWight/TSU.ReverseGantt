@@ -18,4 +18,7 @@ pub struct Task {
     pub estimated_duration: Option<i64>, // Duration in seconds
     pub planned_start: Option<DateTime<Utc>>,
     pub planned_finish: Option<DateTime<Utc>>,
+    // Actual execution fields
+    pub actual_start: Option<DateTime<Utc>>,
+    pub actual_finish: Option<DateTime<Utc>>,
 }
