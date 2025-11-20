@@ -56,3 +56,20 @@ impl std::fmt::Display for TaskStatus {
         }
     }
 }
+
+impl std::str::FromStr for TaskStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Planned" => Ok(TaskStatus::Planned),
+            "InProgress" => Ok(TaskStatus::InProgress),
+            "NeedsReview" => Ok(TaskStatus::NeedsReview),
+            "Accepted" => Ok(TaskStatus::Accepted),
+            "Rejected" => Ok(TaskStatus::Rejected),
+            "Blocked" => Ok(TaskStatus::Blocked),
+            "Done" => Ok(TaskStatus::Done),
+            _ => Err(format!("Invalid TaskStatus: {}", s)),
+        }
+    }
+}
