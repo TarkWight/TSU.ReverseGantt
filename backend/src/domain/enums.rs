@@ -155,3 +155,17 @@ impl std::fmt::Display for DepType {
         }
     }
 }
+
+impl std::str::FromStr for DepType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "FS" => Ok(DepType::FS),
+            "FF" => Ok(DepType::FF),
+            "SS" => Ok(DepType::SS),
+            "SF" => Ok(DepType::SF),
+            _ => Err(format!("Invalid DepType: {}", s)),
+        }
+    }
+}
