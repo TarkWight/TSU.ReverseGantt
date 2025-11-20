@@ -185,3 +185,15 @@ impl std::fmt::Display for ReviewDecision {
         }
     }
 }
+
+impl std::str::FromStr for ReviewDecision {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Accepted" => Ok(ReviewDecision::Accepted),
+            "Rejected" => Ok(ReviewDecision::Rejected),
+            _ => Err(format!("Invalid ReviewDecision: {}", s)),
+        }
+    }
+}
