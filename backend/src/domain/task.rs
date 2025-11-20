@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-use crate::domain::enums::{Priority, TaskStatus, TaskType};
+use crate::domain::enums::{Priority, TaskStatus, TaskType, Hardness};
 use crate::utils::Id;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +16,6 @@ pub struct Task {
     pub priority: Priority,
     // Planning fields
     pub estimated_duration: Option<i64>, // Duration in seconds
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub planned_start: Option<DateTime<Utc>>,
+    pub planned_finish: Option<DateTime<Utc>>,
 }
