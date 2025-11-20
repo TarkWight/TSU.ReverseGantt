@@ -28,4 +28,8 @@ pub struct Task {
     pub hardness: Hardness,
     // Deadline
     pub deadline: Option<DateTime<Utc>>,
+    // Schedule (computed by reverse scheduling)
+    pub schedule: Schedule,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
