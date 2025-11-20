@@ -169,3 +169,10 @@ impl std::str::FromStr for DepType {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReviewDecision {
+    Accepted,
+    Rejected,
+}
