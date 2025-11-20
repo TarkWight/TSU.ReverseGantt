@@ -135,3 +135,12 @@ impl std::str::FromStr for Hardness {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum DepType {
+    FS, // Finish-to-Start
+    FF, // Finish-to-Finish
+    SS, // Start-to-Start
+    SF, // Start-to-Finish
+}
