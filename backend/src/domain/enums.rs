@@ -114,3 +114,12 @@ pub enum Hardness {
     Hard,
     Soft,
 }
+
+impl std::fmt::Display for Hardness {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Hardness::Hard => write!(f, "Hard"),
+            Hardness::Soft => write!(f, "Soft"),
+        }
+    }
+}
