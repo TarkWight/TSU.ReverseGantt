@@ -42,3 +42,17 @@ pub enum TaskStatus {
     Blocked,
     Done,
 }
+
+impl std::fmt::Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskStatus::Planned => write!(f, "Planned"),
+            TaskStatus::InProgress => write!(f, "InProgress"),
+            TaskStatus::NeedsReview => write!(f, "NeedsReview"),
+            TaskStatus::Accepted => write!(f, "Accepted"),
+            TaskStatus::Rejected => write!(f, "Rejected"),
+            TaskStatus::Blocked => write!(f, "Blocked"),
+            TaskStatus::Done => write!(f, "Done"),
+        }
+    }
+}
