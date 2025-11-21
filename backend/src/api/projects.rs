@@ -114,3 +114,12 @@ pub async fn update_project(
     let project = service.update(project_id, updated).await?;
     Ok(Json(project.into()))
 }
+
+pub async fn delete_project(
+    Path(id): Path<String>,
+    State(service): State<Arc<dyn ProjectService>>,
+) -> AppResult<StatusCode> {
+    let project_id = parse_id(&id)?;
+    service.delete(project_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
