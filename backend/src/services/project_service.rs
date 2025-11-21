@@ -1,3 +1,7 @@
+/* TODO: - refine error handling
+* sqlx::Error -> AppError::Internal (From)
+* ->!map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+*/
 use crate::utils::{AppError, AppResult, Id};
 use crate::utils::validate_project_name;
 use crate::domain::Project;
@@ -83,7 +87,7 @@ impl ProjectService for ProjectServiceImpl {
 
     async fn create(&self, project: Project) -> AppResult<Project> {
         validate_project_name(&project.name)?;
-        
+
         sqlx::query!(
         r#"
         INSERT INTO projects
