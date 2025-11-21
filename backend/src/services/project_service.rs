@@ -20,3 +20,26 @@ impl ProjectServiceImpl {
         Self { pool }
     }
 }
+
+#[async_trait]
+impl ProjectService for ProjectServiceImpl {
+    async fn get_all(&self) -> AppResult<Vec<Project>> {
+        todo!()
+    }
+
+    async fn get_by_id(&self, id: Id) -> AppResult<Project> {
+        todo!()
+    }
+
+    async fn create(&self, project: Project) -> AppResult<Project> {
+        todo!()
+    }
+
+    async fn update(&self, id: Id, project: Project) -> AppResult<Project> {
+        todo!()
+    }
+
+    async fn delete(&self, id: Id) -> AppResult<()> {
+        todo!()
+    }
+}
