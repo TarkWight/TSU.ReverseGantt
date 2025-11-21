@@ -1,5 +1,10 @@
 use serde::Deserialize;
 use serde::Serialize;
+use std::sync::Arc;
+use axum::{extract::State, Json};
+
+use crate::services::ProjectService;
+use crate::utils::AppResult;
 use crate::domain::Project;
 
 #[derive(Debug, Deserialize)]
@@ -44,4 +49,11 @@ impl From<Project> for ProjectResponse {
             updated_at: project.updated_at,
         }
     }
+}
+
+pub async fn get_projects(
+    State(service): State<Arc<dyn ProjectService>>,
+) -> AppResult<Json<Vec<ProjectResponse>>> {
+    let projects = service.get_all().await?;
+    Ok(Json(projects.into_iter().map(Into::into).collect()))
 }
