@@ -80,7 +80,25 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn create(&self, project: Project) -> AppResult<Project> {
-        todo!()
+        sqlx::query!(
+        r#"
+        INSERT INTO projects
+            (id, name, description, start_date, due_date, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+        project.id,
+        project.name,
+        project.description,
+        project.start_date,
+        project.due_date,
+        project.created_at,
+        project.updated_at
+    )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        Ok(project)
     }
 
     async fn update(&self, id: Id, project: Project) -> AppResult<Project> {
