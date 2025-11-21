@@ -52,7 +52,31 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn get_by_id(&self, id: Id) -> AppResult<Project> {
-        todo!()
+        let row = sqlx::query!(
+        r#"
+        SELECT
+            id, name, description,
+            start_date, due_date,
+            created_at, updated_at
+        FROM projects
+        WHERE id = $1
+        "#,
+        id
+    )
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .ok_or_else(|| AppError::NotFound(format!("Project with id {} not found", id)))?;
+
+        Ok(Project {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            start_date: row.start_date,
+            due_date: row.due_date,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
     }
 
     async fn create(&self, project: Project) -> AppResult<Project> {
