@@ -1,13 +1,16 @@
+mod api;
 mod config;
 mod db;
+mod domain;
+mod utils;
+mod services;
 
-use axum::{routing::get, Json, Router};
 use dotenvy::dotenv;
-use serde::Serialize;
 use tokio::net::TcpListener;
 use std::net::SocketAddr;
 
 use crate::config::Config;
+use crate::services::ProjectServiceImpl;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -18,9 +21,10 @@ async fn main() -> anyhow::Result<()> {
 
     let pool = db::create_pool(&config.database.url).await?;
 
-    let app = Router::new()
-        .route("/", get(root))
-        .route("/health", get(health_check));
+    let project_service: Box<dyn services::ProjectService> =
+        Box::new(ProjectServiceImpl::new(pool));
+
+    let app = api::create_router(project_service);
 
     let listener = TcpListener::bind(addr)
         .await
@@ -31,23 +35,6 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
-}
-
-#[derive(Serialize)]
-struct HealthResponse {
-    status: &'static str,
-    service: &'static str,
-}
-
-async fn health_check() -> Json<HealthResponse> {
-    Json(HealthResponse {
-        status: "ok",
-        service: "reverse-gantt-backend",
-    })
-}
-
-async fn root() -> &'static str {
-    "Reverse Gantt API"
 }
 
 async fn shutdown_signal() {

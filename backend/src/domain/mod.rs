@@ -1,10 +1,10 @@
 pub mod enums;
 pub mod project;
 pub mod task;
-pub mod scheduler;
+pub mod schedule;
 
 pub use enums::*;
 pub use project::Project;
 pub use task::Task;
-pub use scheduler::Scheduler;
+pub use schedule::Schedule;
 

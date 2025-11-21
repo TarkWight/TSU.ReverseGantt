@@ -29,7 +29,7 @@ pub struct Task {
     // Deadline
     pub deadline: Option<DateTime<Utc>>,
     // Schedule (computed by reverse scheduling)
-    pub schedule: Schedule,
+    pub schedule: crate::domain::Schedule,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
