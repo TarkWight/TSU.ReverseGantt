@@ -102,7 +102,33 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn update(&self, id: Id, project: Project) -> AppResult<Project> {
-        todo!()
+        let rows = sqlx::query!(
+        r#"
+        UPDATE projects
+        SET name = $2,
+            description = $3,
+            start_date = $4,
+            due_date = $5,
+            updated_at = $6
+        WHERE id = $1
+        "#,
+        id,
+        project.name,
+        project.description,
+        project.start_date,
+        project.due_date,
+        project.updated_at
+    )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound(format!("Project with id {} not found", id)));
+        }
+
+        Ok(project)
     }
 
     async fn delete(&self, id: Id) -> AppResult<()> {
