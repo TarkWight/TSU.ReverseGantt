@@ -1,5 +1,7 @@
 use crate::utils::{AppError, AppResult, Id};
+use crate::utils::validate_project_name;
 use crate::domain::Project;
+
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -80,6 +82,8 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn create(&self, project: Project) -> AppResult<Project> {
+        validate_project_name(&project.name)?;
+        
         sqlx::query!(
         r#"
         INSERT INTO projects
@@ -102,6 +106,8 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn update(&self, id: Id, project: Project) -> AppResult<Project> {
+        validate_project_name(&project.name)?;
+
         let rows = sqlx::query!(
         r#"
         UPDATE projects
