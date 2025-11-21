@@ -132,6 +132,19 @@ impl ProjectService for ProjectServiceImpl {
     }
 
     async fn delete(&self, id: Id) -> AppResult<()> {
-        todo!()
+        let rows = sqlx::query!(
+        "DELETE FROM projects WHERE id = $1",
+        id
+    )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .rows_affected();
+
+        if rows == 0 {
+            return Err(AppError::NotFound(format!("Project with id {} not found", id)));
+        }
+
+        Ok(())
     }
 }
