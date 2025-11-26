@@ -99,8 +99,73 @@ impl TaskService for TaskServiceImpl {
         Ok(tasks)
     }
 
-    async fn get_by_id(&self, _id: Id) -> AppResult<Task> {
-        todo!("get_by_id not implemented yet");
+    async fn get_by_id(&self, id: Id) -> AppResult<Task> {
+        let row = query!(
+            r#"
+            SELECT
+                id,
+                project_id,
+                parent_task_id,
+                name,
+                description,
+                task_type,
+                status,
+                priority,
+                estimated_duration,
+                planned_start,
+                planned_finish,
+                actual_start,
+                actual_finish,
+                progress,
+                buffer,
+                hardness,
+                deadline,
+                schedule_ls,
+                schedule_lf,
+                schedule_slack,
+                schedule_is_critical,
+                created_at,
+                updated_at
+            FROM tasks
+            WHERE id = $1
+            "#,
+            id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .ok_or_else(|| AppError::NotFound(format!("Task with id {} not found", id)))?;
+
+        Ok(Task {
+            id: row.id,
+            project_id: row.project_id,
+            parent_task_id: row.parent_task_id,
+            name: row.name,
+            description: row.description,
+            task_type: row.task_type.parse().unwrap_or(TaskType::Task),
+            status: row.status.parse().unwrap_or(TaskStatus::Planned),
+            priority: row.priority.parse().unwrap_or(Priority::Normal),
+            estimated_duration: row.estimated_duration,
+            planned_start: row.planned_start,
+            planned_finish: row.planned_finish,
+            actual_start: row.actual_start,
+            actual_finish: row.actual_finish,
+            progress: row.progress.unwrap_or(0),
+            buffer: row.buffer.unwrap_or(0),
+            hardness: row
+                .hardness
+                .parse()
+                .unwrap_or(crate::domain::enums::Hardness::Soft),
+            deadline: row.deadline,
+            schedule: Schedule {
+                ls: row.schedule_ls,
+                lf: row.schedule_lf,
+                slack: row.schedule_slack,
+                is_critical: row.schedule_is_critical,
+            },
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
     }
 
     async fn create(&self, _task: Task) -> AppResult<Task> {
