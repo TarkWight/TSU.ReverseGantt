@@ -7,3 +7,15 @@ pub trait ScheduleService: Send + Sync {
     async fn reverse_schedule(&self, project_id: Id) -> AppResult<Vec<Task>>;
     async fn compute_schedule(&self, tasks: &[Task]) -> AppResult<Vec<Schedule>>;
 }
+
+use sqlx::PgPool;
+
+pub struct ScheduleServiceImpl {
+    pool: PgPool,
+}
+
+impl ScheduleServiceImpl {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
