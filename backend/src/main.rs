@@ -5,12 +5,17 @@ mod domain;
 mod utils;
 mod services;
 
-use dotenvy::dotenv;
-use tokio::net::TcpListener;
 use std::net::SocketAddr;
+use tokio::net::TcpListener;
+use dotenvy::dotenv;
 
 use crate::config::Config;
-use crate::services::ProjectServiceImpl;
+use crate::services::{
+    ProjectServiceImpl,
+    TaskServiceImpl,
+    ProjectService,
+    TaskService
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,10 +26,13 @@ async fn main() -> anyhow::Result<()> {
 
     let pool = db::create_pool(&config.database.url).await?;
 
-    let project_service: Box<dyn services::ProjectService> =
-        Box::new(ProjectServiceImpl::new(pool));
+    let project_service: Box<dyn ProjectService> =
+        Box::new(ProjectServiceImpl::new(pool.clone()));
+    let task_service: Box<dyn TaskService> =
+        Box::new(TaskServiceImpl::new(pool.clone()));
 
-    let app = api::create_router(project_service);
+
+    let app = api::create_router(project_service, task_service);
 
     let listener = TcpListener::bind(addr)
         .await
