@@ -6,4 +6,4 @@ pub mod schedule_service;
 pub use dependency_service::{DependencyService, DependencyServiceImpl};
 pub use project_service::{ProjectService, ProjectServiceImpl};
 pub use task_service::{TaskService, TaskServiceImpl};
-pub use schedule_service::{ScheduleService, };
+pub use schedule_service::{ScheduleService, ScheduleServiceImpl};
