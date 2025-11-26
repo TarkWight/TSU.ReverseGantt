@@ -41,20 +41,27 @@ pub fn create_router(
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
-        .nest("/projects", create_projects_router().with_state(state))
+        .nest("/projects", create_projects_router().with_state(state.clone()))
+        .nest("/tasks", create_tasks_router().with_state(state))
 }
 
 fn create_projects_router() -> Router<AppState> {
     Router::new()
         .route(
             "/",
-            axum::routing::get(get_projects_handler).post(create_project_handler),
+            axum::routing::get(get_projects_handler)
+                .post(create_project_handler),
         )
         .route(
             "/{id}",
             axum::routing::get(get_project_handler)
                 .patch(update_project_handler)
                 .delete(delete_project_handler),
+        )
+        .route(
+            "/{id}/tasks",
+            axum::routing::get(get_tasks_by_project_handler)
+                .post(create_task_for_project_handler),
         )
 }
 
@@ -101,4 +108,73 @@ async fn delete_project_handler(
     State(state): State<AppState>,
 ) -> AppResult<axum::http::StatusCode> {
     projects::delete_project(axum::extract::Path(id), State(state.project_service)).await
+}
+
+fn create_tasks_router() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/{id}",
+            axum::routing::get(get_task_handler)
+                .patch(update_task_handler)
+                .delete(delete_task_handler),
+        )
+}
+
+async fn get_tasks_by_project_handler(
+    axum::extract::Path(project_id): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> crate::utils::AppResult<axum::Json<Vec<tasks::TaskResponse>>> {
+    tasks::get_tasks(
+        axum::extract::Path(project_id),
+        axum::extract::State(state.task_service),
+    )
+        .await
+}
+
+async fn create_task_for_project_handler(
+    axum::extract::Path(project_id): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<AppState>,
+    axum::Json(req): axum::Json<tasks::CreateTaskRequest>,
+) -> crate::utils::AppResult<impl axum::response::IntoResponse> {
+    tasks::create_task(
+        axum::extract::Path(project_id),
+        axum::extract::State(state.task_service),
+        axum::Json(req),
+    )
+        .await
+}
+
+async fn get_task_handler(
+    axum::extract::Path(id): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> crate::utils::AppResult<axum::Json<tasks::TaskResponse>> {
+    tasks::get_task(
+        axum::extract::Path(id),
+        axum::extract::State(state.task_service),
+    )
+        .await
+}
+
+async fn update_task_handler(
+    axum::extract::Path(id): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<AppState>,
+    axum::Json(req): axum::Json<tasks::UpdateTaskRequest>,
+) -> crate::utils::AppResult<axum::Json<tasks::TaskResponse>> {
+    tasks::update_task(
+        axum::extract::Path(id),
+        axum::extract::State(state.task_service),
+        axum::Json(req),
+    )
+        .await
+}
+
+async fn delete_task_handler(
+    axum::extract::Path(id): axum::extract::Path<String>,
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> crate::utils::AppResult<axum::http::StatusCode> {
+    tasks::delete_task(
+        axum::extract::Path(id),
+        axum::extract::State(state.task_service),
+    )
+        .await
 }
