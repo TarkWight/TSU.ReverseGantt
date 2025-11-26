@@ -8,7 +8,12 @@ use axum::Router;
 use axum::extract::{State, Path};
 use axum::Json;
 use crate::utils::AppResult;
-use crate::services::{DependencyService, ProjectService, TaskService};
+use crate::services::{
+    DependencyService,
+    ProjectService,
+    TaskService,
+    ScheduleService,
+};
 
 use crate::api::{
     projects::{
@@ -32,17 +37,20 @@ pub struct AppState {
     pub project_service: Arc<dyn ProjectService>,
     pub task_service: Arc<dyn TaskService>,
     pub dependency_service: Arc<dyn DependencyService>,
+    pub schedule_service: Arc<dyn ScheduleService>,
 }
 
 pub fn create_router(
     project_service: Box<dyn ProjectService>,
     task_service: Box<dyn TaskService>,
     dependency_service: Box<dyn DependencyService>,
+    schedule_service: Box<dyn ScheduleService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
         task_service: Arc::from(task_service),
         dependency_service: Arc::from(dependency_service),
+        schedule_service: Arc::from(schedule_service),
     };
 
     Router::new()
