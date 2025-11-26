@@ -189,8 +189,27 @@ impl DependencyService for DependencyServiceImpl {
         Ok(dependency)
     }
 
-    async fn delete(&self, _id: Id) -> AppResult<()> {
-        todo!("delete dependency not implemented yet");
+    async fn delete(&self, id: Id) -> AppResult<()> {
+        let rows_affected = query!(
+            r#"
+            DELETE FROM dependencies
+            WHERE id = $1
+            "#,
+            id
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .rows_affected();
+
+        if rows_affected == 0 {
+            return Err(AppError::NotFound(format!(
+                "Dependency with id {} not found",
+                id
+            )));
+        }
+
+        Ok(())
     }
 }
 
