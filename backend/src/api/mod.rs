@@ -1,29 +1,46 @@
 pub mod projects;
+pub mod tasks;
 
 use std::sync::Arc;
 use axum::Router;
 use axum::extract::State;
 use axum::Json;
 use crate::utils::AppResult;
-use crate::api::projects::{
-    CreateProjectRequest,
-    UpdateProjectRequest,
-    ProjectResponse,
+use crate::services::{
+    ProjectService,
+    TaskService,
 };
 
-use crate::services::ProjectService;
+use crate::api::{
+    projects::{
+        CreateProjectRequest,
+        UpdateProjectRequest,
+        ProjectResponse,
+    },
+    tasks::{
+        CreateTaskRequest,
+        UpdateTaskRequest,
+        TaskResponse,
+    },
+};
 
 #[derive(Clone)]
 pub struct AppState {
     pub project_service: Arc<dyn ProjectService>,
+    pub task_service: Arc<dyn TaskService>,
 }
-pub fn create_router(project_service: Box<dyn ProjectService>) -> Router {
+
+pub fn create_router(
+    project_service: Box<dyn ProjectService>,
+    task_service: Box<dyn TaskService>,
+) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
+        task_service: Arc::from(task_service),
     };
 
     Router::new()
-        .route("/health",  axum::routing::get(health_check))
+        .route("/health", axum::routing::get(health_check))
         .nest("/projects", create_projects_router().with_state(state))
 }
 
