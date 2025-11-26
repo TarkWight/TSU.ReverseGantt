@@ -168,8 +168,55 @@ impl TaskService for TaskServiceImpl {
         })
     }
 
-    async fn create(&self, _task: Task) -> AppResult<Task> {
-        todo!("create not implemented yet");
+    async fn create(&self, task: Task) -> AppResult<Task> {
+        query!(
+            r#"
+            INSERT INTO tasks (
+                id, project_id, parent_task_id, name, description,
+                task_type, status, priority, estimated_duration,
+                planned_start, planned_finish, actual_start, actual_finish,
+                progress, buffer, hardness, deadline,
+                schedule_ls, schedule_lf, schedule_slack, schedule_is_critical,
+                created_at, updated_at
+            )
+            VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9,
+                $10, $11, $12, $13,
+                $14, $15, $16, $17,
+                $18, $19, $20, $21,
+                $22, $23
+            )
+            "#,
+            task.id,
+            task.project_id,
+            task.parent_task_id,
+            task.name,
+            task.description,
+            task.task_type.to_string(),
+            task.status.to_string(),
+            task.priority.to_string(),
+            task.estimated_duration,
+            task.planned_start,
+            task.planned_finish,
+            task.actual_start,
+            task.actual_finish,
+            task.progress,
+            task.buffer,
+            task.hardness.to_string(),
+            task.deadline,
+            task.schedule.ls,
+            task.schedule.lf,
+            task.schedule.slack,
+            task.schedule.is_critical,
+            task.created_at,
+            task.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+
+        Ok(task)
     }
 
     async fn update(&self, _id: Id, _task: Task) -> AppResult<Task> {
