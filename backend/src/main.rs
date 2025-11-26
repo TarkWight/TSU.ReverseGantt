@@ -14,9 +14,11 @@ use crate::services::{
     ProjectServiceImpl,
     TaskServiceImpl,
     DependencyServiceImpl,
+    ScheduleServiceImpl,
     ProjectService,
     TaskService,
     DependencyService,
+    ScheduleService,
 };
 
 #[tokio::main]
@@ -34,11 +36,14 @@ async fn main() -> anyhow::Result<()> {
         Box::new(TaskServiceImpl::new(pool.clone()));
     let dependency_service: Box<dyn DependencyService> =
         Box::new(DependencyServiceImpl::new(pool.clone()));
+    let schedule_service: Box<dyn ScheduleService> =
+        Box::new(ScheduleServiceImpl::new(pool.clone()));
 
     let app = api::create_router(
         project_service,
         task_service,
         dependency_service,
+        schedule_service,
     );
 
     let listener = TcpListener::bind(addr)

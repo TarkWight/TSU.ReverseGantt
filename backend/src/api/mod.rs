@@ -1,13 +1,19 @@
 pub mod projects;
 pub mod tasks;
 pub mod dependencies;
+pub mod schedule;
 
 use std::sync::Arc;
 use axum::Router;
 use axum::extract::{State, Path};
 use axum::Json;
 use crate::utils::AppResult;
-use crate::services::{DependencyService, ProjectService, TaskService};
+use crate::services::{
+    DependencyService,
+    ProjectService,
+    TaskService,
+    ScheduleService,
+};
 
 use crate::api::{
     projects::{
@@ -31,17 +37,20 @@ pub struct AppState {
     pub project_service: Arc<dyn ProjectService>,
     pub task_service: Arc<dyn TaskService>,
     pub dependency_service: Arc<dyn DependencyService>,
+    pub schedule_service: Arc<dyn ScheduleService>,
 }
 
 pub fn create_router(
     project_service: Box<dyn ProjectService>,
     task_service: Box<dyn TaskService>,
     dependency_service: Box<dyn DependencyService>,
+    schedule_service: Box<dyn ScheduleService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
         task_service: Arc::from(task_service),
         dependency_service: Arc::from(dependency_service),
+        schedule_service: Arc::from(schedule_service),
     };
 
     Router::new()
@@ -54,31 +63,32 @@ fn create_projects_router() -> Router<AppState> {
     Router::new()
         .route(
             "/",
-            axum::routing::get(get_projects_handler)
-                .post(create_project_handler),
+               axum::routing::get(get_projects_handler)
+            .post(create_project_handler),
         )
         .route(
             "/{id}",
             axum::routing::get(get_project_handler)
-                .patch(update_project_handler)
-                .delete(delete_project_handler),
+            .patch(update_project_handler)
+            .delete(delete_project_handler),
         )
         .route(
             "/{id}/tasks",
             axum::routing::get(get_tasks_by_project_handler)
-                .post(create_task_for_project_handler),
+            .post(create_task_for_project_handler),
+        )
+        .route(
+            "/{id}/schedule/reverse",
+            axum::routing::post(reverse_schedule_handler),
         )
 }
 
-// simple health endpoint for the backend
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "status": "ok",
         "service": "reverse-gantt-backend"
     }))
 }
-
-// wrappers that bridge AppState to per-module handlers
 
 async fn get_projects_handler(
     State(state): State<AppState>,
@@ -206,4 +216,14 @@ async fn create_dependency_handler(
         Json(req)
     )
         .await
+}
+
+async fn reverse_schedule_handler(
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<schedule::ReverseScheduleResponse>> {
+    schedule::reverse_schedule(
+        Path(project_id),
+        State(state.schedule_service),
+    ).await
 }
