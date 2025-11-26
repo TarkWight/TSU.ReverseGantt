@@ -138,3 +138,38 @@ pub async fn create_task(
     let created = service.create(task).await?;
     Ok((StatusCode::CREATED, Json(TaskResponse::from(created))))
 }
+
+pub async fn update_task(
+    Path(id): Path<String>,
+    State(service): State<std::sync::Arc<dyn TaskService>>,
+    Json(req): Json<UpdateTaskRequest>,
+) -> AppResult<Json<TaskResponse>> {
+    let task_id = parse_id(&id)?;
+    let existing = service.get_by_id(task_id).await?;
+
+    let updated = Task {
+        id: existing.id,
+        project_id: existing.project_id,
+        parent_task_id: existing.parent_task_id,
+        name: req.name.unwrap_or(existing.name),
+        description: req.description.or(existing.description),
+        task_type: req.task_type.unwrap_or(existing.task_type),
+        status: req.status.unwrap_or(existing.status),
+        priority: req.priority.unwrap_or(existing.priority),
+        estimated_duration: req.estimated_duration.or(existing.estimated_duration),
+        planned_start: req.planned_start.or(existing.planned_start),
+        planned_finish: req.planned_finish.or(existing.planned_finish),
+        actual_start: req.actual_start.or(existing.actual_start),
+        actual_finish: req.actual_finish.or(existing.actual_finish),
+        progress: req.progress.unwrap_or(existing.progress),
+        buffer: req.buffer.unwrap_or(existing.buffer),
+        hardness: req.hardness.unwrap_or(existing.hardness),
+        deadline: req.deadline.or(existing.deadline),
+        schedule: existing.schedule,
+        created_at: existing.created_at,
+        updated_at: chrono::Utc::now(),
+    };
+
+    let task = service.update(task_id, updated).await?;
+    Ok(Json(task.into()))
+}
