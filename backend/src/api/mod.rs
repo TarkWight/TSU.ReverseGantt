@@ -63,31 +63,32 @@ fn create_projects_router() -> Router<AppState> {
     Router::new()
         .route(
             "/",
-            axum::routing::get(get_projects_handler)
-                .post(create_project_handler),
+               axum::routing::get(get_projects_handler)
+            .post(create_project_handler),
         )
         .route(
             "/{id}",
             axum::routing::get(get_project_handler)
-                .patch(update_project_handler)
-                .delete(delete_project_handler),
+            .patch(update_project_handler)
+            .delete(delete_project_handler),
         )
         .route(
             "/{id}/tasks",
             axum::routing::get(get_tasks_by_project_handler)
-                .post(create_task_for_project_handler),
+            .post(create_task_for_project_handler),
+        )
+        .route(
+            "/{id}/schedule/reverse",
+            axum::routing::post(reverse_schedule_handler),
         )
 }
 
-// simple health endpoint for the backend
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "status": "ok",
         "service": "reverse-gantt-backend"
     }))
 }
-
-// wrappers that bridge AppState to per-module handlers
 
 async fn get_projects_handler(
     State(state): State<AppState>,
@@ -215,4 +216,14 @@ async fn create_dependency_handler(
         Json(req)
     )
         .await
+}
+
+async fn reverse_schedule_handler(
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<schedule::ReverseScheduleResponse>> {
+    schedule::reverse_schedule(
+        Path(project_id),
+        State(state.schedule_service),
+    ).await
 }
