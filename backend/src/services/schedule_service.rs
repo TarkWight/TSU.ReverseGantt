@@ -216,4 +216,30 @@ impl ScheduleServiceImpl {
 
         Ok(())
     }
+
+    async fn save_schedules(&self, tasks: &[Task]) -> AppResult<()> {
+        for t in tasks {
+            query!(
+                r#"
+                UPDATE tasks
+                SET schedule_ls = $2,
+                    schedule_lf = $3,
+                    schedule_slack = $4,
+                    schedule_is_critical = $5,
+                    updated_at = $6
+                WHERE id = $1
+                "#,
+                t.id,
+                t.schedule.ls,
+                t.schedule.lf,
+                t.schedule.slack,
+                t.schedule.is_critical,
+                t.updated_at
+            )
+                .execute(&self.pool)
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+        }
+        Ok(())
+    }
 }
