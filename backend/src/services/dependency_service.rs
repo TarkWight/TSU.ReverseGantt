@@ -155,8 +155,38 @@ impl DependencyService for DependencyServiceImpl {
         Ok(dependencies)
     }
 
-    async fn create(&self, _dependency: Dependency) -> AppResult<Dependency> {
-        todo!("create dependency not implemented yet");
+    async fn create(&self, dependency: Dependency) -> AppResult<Dependency> {
+        let project_id = self.get_project_id_for_task(dependency.from_task_id)
+            .await?;
+
+        self.check_for_cycles(project_id, &dependency)
+            .await?;
+
+        query!(
+            r#"
+            INSERT INTO dependencies (id, from_task_id, to_task_id, dep_type, min_gap)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            dependency.id,
+            dependency.from_task_id,
+            dependency.to_task_id,
+            dependency.dep_type.to_string(),
+            dependency.min_gap
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("unique_dependency") {
+                    AppError::Validation(
+                        "A dependency with the same parameters already exists".into(),
+                    )
+                } else {
+                    AppError::Internal(anyhow::anyhow!("Database error: {}", msg))
+                }
+            })?;
+
+        Ok(dependency)
     }
 
     async fn delete(&self, _id: Id) -> AppResult<()> {
