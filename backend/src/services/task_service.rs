@@ -278,7 +278,23 @@ impl TaskService for TaskServiceImpl {
         Ok(task)
     }
 
-    async fn delete(&self, _id: Id) -> AppResult<()> {
-        todo!("delete not implemented yet");
+    async fn delete(&self, id: Id) -> AppResult<()> {
+        let rows_affected = query!(
+            r#"
+            DELETE FROM tasks
+            WHERE id = $1
+            "#,
+            id
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .rows_affected();
+
+        if rows_affected == 0 {
+            return Err(AppError::NotFound(format!("Task with id {} not found", id)));
+        }
+
+        Ok(())
     }
 }
