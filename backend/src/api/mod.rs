@@ -1,15 +1,13 @@
 pub mod projects;
 pub mod tasks;
+pub mod dependencies;
 
 use std::sync::Arc;
 use axum::Router;
-use axum::extract::State;
+use axum::extract::{State, Path};
 use axum::Json;
 use crate::utils::AppResult;
-use crate::services::{
-    ProjectService,
-    TaskService,
-};
+use crate::services::{DependencyService, ProjectService, TaskService};
 
 use crate::api::{
     projects::{
@@ -22,21 +20,28 @@ use crate::api::{
         UpdateTaskRequest,
         TaskResponse,
     },
+    dependencies::{
+        CreateDependencyRequest,
+        DependencyResponse,
+    }
 };
 
 #[derive(Clone)]
 pub struct AppState {
     pub project_service: Arc<dyn ProjectService>,
     pub task_service: Arc<dyn TaskService>,
+    pub dependency_service: Arc<dyn DependencyService>,
 }
 
 pub fn create_router(
     project_service: Box<dyn ProjectService>,
     task_service: Box<dyn TaskService>,
+    dependency_service: Box<dyn DependencyService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
         task_service: Arc::from(task_service),
+        dependency_service: Arc::from(dependency_service),
     };
 
     Router::new()
@@ -82,10 +87,10 @@ async fn get_projects_handler(
 }
 
 async fn get_project_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
     State(state): State<AppState>,
 ) -> AppResult<Json<ProjectResponse>> {
-    projects::get_project(axum::extract::Path(id), State(state.project_service)).await
+    projects::get_project(Path(id), State(state.project_service)).await
 }
 
 async fn create_project_handler(
@@ -96,18 +101,18 @@ async fn create_project_handler(
 }
 
 async fn update_project_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
     State(state): State<AppState>,
     Json(req): Json<UpdateProjectRequest>,
 ) -> AppResult<Json<ProjectResponse>> {
-    projects::update_project(axum::extract::Path(id), State(state.project_service), Json(req)).await
+    projects::update_project(Path(id), State(state.project_service), Json(req)).await
 }
 
 async fn delete_project_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
+    Path(id): Path<String>,
     State(state): State<AppState>,
 ) -> AppResult<axum::http::StatusCode> {
-    projects::delete_project(axum::extract::Path(id), State(state.project_service)).await
+    projects::delete_project(Path(id), State(state.project_service)).await
 }
 
 fn create_tasks_router() -> Router<AppState> {
@@ -121,60 +126,84 @@ fn create_tasks_router() -> Router<AppState> {
 }
 
 async fn get_tasks_by_project_handler(
-    axum::extract::Path(project_id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-) -> crate::utils::AppResult<axum::Json<Vec<tasks::TaskResponse>>> {
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<TaskResponse>>> {
     tasks::get_tasks(
-        axum::extract::Path(project_id),
-        axum::extract::State(state.task_service),
+        Path(project_id),
+        State(state.task_service),
     )
         .await
 }
 
 async fn create_task_for_project_handler(
-    axum::extract::Path(project_id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-    axum::Json(req): axum::Json<tasks::CreateTaskRequest>,
-) -> crate::utils::AppResult<impl axum::response::IntoResponse> {
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<CreateTaskRequest>,
+) -> AppResult<impl axum::response::IntoResponse> {
     tasks::create_task(
-        axum::extract::Path(project_id),
-        axum::extract::State(state.task_service),
-        axum::Json(req),
+        Path(project_id),
+        State(state.task_service),
+        Json(req),
     )
         .await
 }
 
 async fn get_task_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-) -> crate::utils::AppResult<axum::Json<tasks::TaskResponse>> {
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<TaskResponse>> {
     tasks::get_task(
-        axum::extract::Path(id),
-        axum::extract::State(state.task_service),
+        Path(id),
+        State(state.task_service),
     )
         .await
 }
 
 async fn update_task_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-    axum::Json(req): axum::Json<tasks::UpdateTaskRequest>,
-) -> crate::utils::AppResult<axum::Json<tasks::TaskResponse>> {
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<UpdateTaskRequest>,
+) -> AppResult<Json<TaskResponse>> {
     tasks::update_task(
-        axum::extract::Path(id),
-        axum::extract::State(state.task_service),
-        axum::Json(req),
+        Path(id),
+        State(state.task_service),
+        Json(req),
     )
         .await
 }
 
 async fn delete_task_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-) -> crate::utils::AppResult<axum::http::StatusCode> {
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<axum::http::StatusCode> {
     tasks::delete_task(
-        axum::extract::Path(id),
-        axum::extract::State(state.task_service),
+        Path(id),
+        State(state.task_service),
+    )
+        .await
+}
+
+async fn get_dependencies_handler(
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<DependencyResponse>>> {
+    dependencies::get_dependencies(
+        Path(task_id),
+        State(state.dependency_service)
+    )
+        .await
+}
+
+async fn create_dependency_handler(
+    Path(from_task_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<CreateDependencyRequest>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    dependencies::create_dependency(
+        Path(from_task_id),
+        State(state.dependency_service),
+        Json(req)
     )
         .await
 }

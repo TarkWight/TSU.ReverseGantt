@@ -13,8 +13,10 @@ use crate::config::Config;
 use crate::services::{
     ProjectServiceImpl,
     TaskServiceImpl,
+    DependencyServiceImpl,
     ProjectService,
-    TaskService
+    TaskService,
+    DependencyService,
 };
 
 #[tokio::main]
@@ -30,9 +32,14 @@ async fn main() -> anyhow::Result<()> {
         Box::new(ProjectServiceImpl::new(pool.clone()));
     let task_service: Box<dyn TaskService> =
         Box::new(TaskServiceImpl::new(pool.clone()));
+    let dependency_service: Box<dyn DependencyService> =
+        Box::new(DependencyServiceImpl::new(pool.clone()));
 
-
-    let app = api::create_router(project_service, task_service);
+    let app = api::create_router(
+        project_service,
+        task_service,
+        dependency_service,
+    );
 
     let listener = TcpListener::bind(addr)
         .await
