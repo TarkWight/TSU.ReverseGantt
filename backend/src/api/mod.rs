@@ -4,13 +4,10 @@ pub mod dependencies;
 
 use std::sync::Arc;
 use axum::Router;
-use axum::extract::State;
+use axum::extract::{State, Path};
 use axum::Json;
 use crate::utils::AppResult;
-use crate::services::{
-    ProjectService,
-    TaskService,
-};
+use crate::services::{DependencyService, ProjectService, TaskService};
 
 use crate::api::{
     projects::{
@@ -174,12 +171,36 @@ async fn update_task_handler(
 }
 
 async fn delete_task_handler(
-    axum::extract::Path(id): axum::extract::Path<String>,
-    axum::extract::State(state): axum::extract::State<AppState>,
-) -> crate::utils::AppResult<axum::http::StatusCode> {
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<axum::http::StatusCode> {
     tasks::delete_task(
-        axum::extract::Path(id),
-        axum::extract::State(state.task_service),
+        Path(id),
+        State(state.task_service),
+    )
+        .await
+}
+
+async fn get_dependencies_handler(
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<DependencyResponse>>> {
+    dependencies::get_dependencies(
+        Path(task_id),
+        State(state.dependency_service)
+    )
+        .await
+}
+
+async fn create_dependency_handler(
+    Path(from_task_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<CreateDependencyRequest>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    dependencies::create_dependency(
+        Path(from_task_id),
+        State(state.dependency_service),
+        Json(req)
     )
         .await
 }
