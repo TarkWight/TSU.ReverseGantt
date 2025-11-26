@@ -1,5 +1,6 @@
 pub mod projects;
 pub mod tasks;
+pub mod dependencies;
 
 use std::sync::Arc;
 use axum::Router;
@@ -22,6 +23,10 @@ use crate::api::{
         UpdateTaskRequest,
         TaskResponse,
     },
+    dependencies::{
+        CreateDependencyRequest,
+        DependencyResponse,
+    }
 };
 
 #[derive(Clone)]
