@@ -219,8 +219,63 @@ impl TaskService for TaskServiceImpl {
         Ok(task)
     }
 
-    async fn update(&self, _id: Id, _task: Task) -> AppResult<Task> {
-        todo!("update not implemented yet");
+    async fn update(&self, id: Id, task: Task) -> AppResult<Task> {
+        let rows_affected = query!(
+            r#"
+            UPDATE tasks
+            SET
+                name = $2,
+                description = $3,
+                task_type = $4,
+                status = $5,
+                priority = $6,
+                estimated_duration = $7,
+                planned_start = $8,
+                planned_finish = $9,
+                actual_start = $10,
+                actual_finish = $11,
+                progress = $12,
+                buffer = $13,
+                hardness = $14,
+                deadline = $15,
+                schedule_ls = $16,
+                schedule_lf = $17,
+                schedule_slack = $18,
+                schedule_is_critical = $19,
+                updated_at = $20
+            WHERE id = $1
+            "#,
+            id,
+            task.name,
+            task.description,
+            task.task_type.to_string(),
+            task.status.to_string(),
+            task.priority.to_string(),
+            task.estimated_duration,
+            task.planned_start,
+            task.planned_finish,
+            task.actual_start,
+            task.actual_finish,
+            task.progress,
+            task.buffer,
+            task.hardness.to_string(),
+            task.deadline,
+            task.schedule.ls,
+            task.schedule.lf,
+            task.schedule.slack,
+            task.schedule.is_critical,
+            task.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .rows_affected();
+
+        if rows_affected == 0 {
+            return Err(AppError::NotFound(format!("Task with id {} not found", id)));
+        }
+
+        Ok(task)
     }
 
     async fn delete(&self, _id: Id) -> AppResult<()> {
