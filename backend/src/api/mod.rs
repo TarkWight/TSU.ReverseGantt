@@ -53,6 +53,7 @@ pub fn create_router(
         .route("/health", axum::routing::get(health_check))
         .nest("/projects", create_projects_router().with_state(state.clone()))
         .nest("/tasks", create_tasks_router().with_state(state.clone()))
+        .nest("/export", create_export_router().with_state(state))
         .layer(CorsLayer::permissive())
 }
 
