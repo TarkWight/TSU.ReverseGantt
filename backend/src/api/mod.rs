@@ -2,6 +2,7 @@ pub mod projects;
 pub mod tasks;
 pub mod dependencies;
 pub mod schedule;
+pub mod reviews;
 
 use std::sync::Arc;
 use axum::Router;
@@ -13,6 +14,7 @@ use crate::services::{
     ProjectService,
     TaskService,
     ScheduleService,
+    ReviewService,
 };
 
 use crate::api::{
@@ -38,6 +40,7 @@ pub struct AppState {
     pub task_service: Arc<dyn TaskService>,
     pub dependency_service: Arc<dyn DependencyService>,
     pub schedule_service: Arc<dyn ScheduleService>,
+    pub review_service: Arc<dyn ReviewService>,
 }
 
 pub fn create_router(
@@ -45,12 +48,14 @@ pub fn create_router(
     task_service: Box<dyn TaskService>,
     dependency_service: Box<dyn DependencyService>,
     schedule_service: Box<dyn ScheduleService>,
+    review_service: Box<dyn ReviewService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
         task_service: Arc::from(task_service),
         dependency_service: Arc::from(dependency_service),
         schedule_service: Arc::from(schedule_service),
+        review_service: Arc::from(review_service),
     };
 
     Router::new()
@@ -133,8 +138,17 @@ fn create_tasks_router() -> Router<AppState> {
                 .patch(update_task_handler)
                 .delete(delete_task_handler),
         )
+        .route(
+            "/{id}/dependencies",
+            axum::routing::get(get_dependencies_handler)
+                .post(create_dependency_handler),
+        )
+        .route(
+            "/{id}/review",
+            axum::routing::get(get_review_handler)
+                .post(create_review_handler),
+        )
 }
-
 async fn get_tasks_by_project_handler(
     Path(project_id): Path<String>,
     State(state): State<AppState>,
@@ -226,4 +240,28 @@ async fn reverse_schedule_handler(
         Path(project_id),
         State(state.schedule_service),
     ).await
+}
+
+async fn get_review_handler(
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Option<reviews::ReviewResponse>>> {
+    reviews::get_review(
+        Path(task_id),
+        State(state.review_service),
+    )
+        .await
+}
+
+async fn create_review_handler(
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<reviews::CreateReviewRequest>,
+) -> AppResult<impl axum::response::IntoResponse> {
+    reviews::create_review(
+        Path(task_id),
+        State(state.review_service),
+        Json(req),
+    )
+        .await
 }
