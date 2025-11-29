@@ -257,3 +257,17 @@ async fn create_review_handler(
     )
         .await
 }
+
+fn create_export_router() -> Router<AppState> {
+    Router::new()
+        .route("/projects/{id}/tasks", axum::routing::get(export_tasks))
+}
+
+async fn export_tasks(
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<TaskResponse>>> {
+    let pid = crate::utils::parse_id(&project_id)?;
+    let tasks = state.task_service.get_by_project(pid).await?;
+    Ok(Json(tasks.into_iter().map(TaskResponse::from).collect()))
+}
