@@ -3,6 +3,7 @@ pub mod tasks;
 pub mod dependencies;
 pub mod schedule;
 pub mod reviews;
+pub mod users;
 
 use std::sync::Arc;
 use axum::Router;
@@ -60,6 +61,7 @@ pub fn create_router(
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
+        .route("/login", axum::routing::post(users::login))
         .nest("/projects", create_projects_router().with_state(state.clone()))
         .nest("/tasks", create_tasks_router().with_state(state))
 }
