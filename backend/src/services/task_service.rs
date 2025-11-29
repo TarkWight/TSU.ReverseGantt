@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
+use sqlx::query;
+use anyhow::Context;
+
 use crate::domain::{Task, TaskStatus, TaskType, Priority, Schedule};
 use crate::utils::{AppError, AppResult, Id};
-use sqlx::query;
 
 #[async_trait]
 pub trait TaskService: Send + Sync {
@@ -54,13 +56,16 @@ impl TaskService for TaskServiceImpl {
                 updated_at
             FROM tasks
             WHERE project_id = $1
-            ORDER BY created_at ASC
+            ORDER BY created_at
             "#,
             project_id
         )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .context(format!(
+                "Failed to load tasks for project {} in get_by_project",
+                project_id
+            ))?;
 
         let tasks = rows
             .into_iter()
@@ -133,7 +138,10 @@ impl TaskService for TaskServiceImpl {
         )
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .context(format!(
+                "Failed to load task {} in get_by_id",
+                id
+            ))?
             .ok_or_else(|| AppError::NotFound(format!("Task with id {} not found", id)))?;
 
         Ok(Task {
@@ -214,7 +222,10 @@ impl TaskService for TaskServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .context(format!(
+                "Failed to insert task {} in create",
+                task.id
+            ))?;
 
         Ok(task)
     }
@@ -268,7 +279,10 @@ impl TaskService for TaskServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .context(format!(
+                "Failed to update task {} in update",
+                id
+            ))?
             .rows_affected();
 
         if rows_affected == 0 {
@@ -288,7 +302,10 @@ impl TaskService for TaskServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .context(format!(
+                "Failed to delete task {} in delete",
+                id
+            ))?
             .rows_affected();
 
         if rows_affected == 0 {
