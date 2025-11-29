@@ -8,7 +8,9 @@ pub mod artifact;
 pub mod risk;
 pub mod user;
 pub mod membership;
+pub mod assignment;
 
+pub use assignment::Assignment;
 pub use membership::Membership;
 pub use user::User;
 pub use risk::Risk;
