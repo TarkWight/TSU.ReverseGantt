@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use sqlx::PgPool;
-use sqlx::query;
+use sqlx::{PgPool, query};
 use std::collections::{HashMap, HashSet};
 
 use crate::domain::{Dependency, DepType};
@@ -29,7 +28,7 @@ impl DependencyServiceImpl {
         )
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .map_err(|e| AppError::Internal(e.into()))?
             .ok_or_else(|| AppError::NotFound(format!("Task with id {} not found", task_id)))?;
 
         Ok(row.project_id)
@@ -42,7 +41,7 @@ impl DependencyServiceImpl {
         )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .map_err(|e| AppError::Internal(e.into()))?;
 
         let task_ids: Vec<Id> = tasks.iter().map(|t| t.id).collect();
 
@@ -60,7 +59,7 @@ impl DependencyServiceImpl {
         )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .map_err(|e| AppError::Internal(e.into()))?;
 
         let mut graph: HashMap<Id, Vec<Id>> = HashMap::new();
         for dep in deps {
@@ -136,7 +135,7 @@ impl DependencyService for DependencyServiceImpl {
         )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .map_err(|e| AppError::Internal(e.into()))?;
 
         let dependencies = rows
             .into_iter()
@@ -144,10 +143,7 @@ impl DependencyService for DependencyServiceImpl {
                 id: row.id,
                 from_task_id: row.from_task_id,
                 to_task_id: row.to_task_id,
-                dep_type: row
-                    .dep_type
-                    .parse()
-                    .unwrap_or(DepType::FS),
+                dep_type: row.dep_type.parse().unwrap_or(DepType::FS),
                 min_gap: row.min_gap,
             })
             .collect();
@@ -156,11 +152,11 @@ impl DependencyService for DependencyServiceImpl {
     }
 
     async fn create(&self, dependency: Dependency) -> AppResult<Dependency> {
-        let project_id = self.get_project_id_for_task(dependency.from_task_id)
+        let project_id = self
+            .get_project_id_for_task(dependency.from_task_id)
             .await?;
 
-        self.check_for_cycles(project_id, &dependency)
-            .await?;
+        self.check_for_cycles(project_id, &dependency).await?;
 
         query!(
             r#"
@@ -199,7 +195,7 @@ impl DependencyService for DependencyServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .map_err(|e| AppError::Internal(e.into()))?
             .rows_affected();
 
         if rows_affected == 0 {
@@ -212,4 +208,3 @@ impl DependencyService for DependencyServiceImpl {
         Ok(())
     }
 }
-

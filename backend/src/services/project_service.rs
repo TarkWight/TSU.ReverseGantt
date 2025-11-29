@@ -1,13 +1,10 @@
-/* TODO: - refine error handling
-* sqlx::Error -> AppError::Internal (From)
-* ->!map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
-*/
 use crate::utils::{AppError, AppResult, Id};
 use crate::utils::validate_project_name;
 use crate::domain::Project;
 
 use async_trait::async_trait;
 use sqlx::PgPool;
+use anyhow::Context;
 
 #[async_trait]
 pub trait ProjectService: Send + Sync {
@@ -17,6 +14,7 @@ pub trait ProjectService: Send + Sync {
     async fn update(&self, id: Id, project: Project) -> AppResult<Project>;
     async fn delete(&self, id: Id) -> AppResult<()>;
 }
+
 pub struct ProjectServiceImpl {
     pool: PgPool,
 }
@@ -31,18 +29,18 @@ impl ProjectServiceImpl {
 impl ProjectService for ProjectServiceImpl {
     async fn get_all(&self) -> AppResult<Vec<Project>> {
         let rows = sqlx::query!(
-        r#"
-        SELECT
-            id, name, description,
-            start_date, due_date,
-            created_at, updated_at
-        FROM projects
-        ORDER BY created_at DESC
-        "#
-    )
+            r#"
+            SELECT
+                id, name, description,
+                start_date, due_date,
+                created_at, updated_at
+            FROM projects
+            ORDER BY created_at DESC
+            "#
+        )
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+            .context("Failed to load projects from database")?;
 
         let projects = rows.into_iter().map(|row| Project {
             id: row.id,
@@ -59,19 +57,19 @@ impl ProjectService for ProjectServiceImpl {
 
     async fn get_by_id(&self, id: Id) -> AppResult<Project> {
         let row = sqlx::query!(
-        r#"
-        SELECT
-            id, name, description,
-            start_date, due_date,
-            created_at, updated_at
-        FROM projects
-        WHERE id = $1
-        "#,
-        id
-    )
+            r#"
+            SELECT
+                id, name, description,
+                start_date, due_date,
+                created_at, updated_at
+            FROM projects
+            WHERE id = $1
+            "#,
+            id
+        )
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .context(format!("Failed to load project {} from database", id))? // <= контекст
             .ok_or_else(|| AppError::NotFound(format!("Project with id {} not found", id)))?;
 
         Ok(Project {
@@ -89,22 +87,22 @@ impl ProjectService for ProjectServiceImpl {
         validate_project_name(&project.name)?;
 
         sqlx::query!(
-        r#"
-        INSERT INTO projects
-            (id, name, description, start_date, due_date, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        "#,
-        project.id,
-        project.name,
-        project.description,
-        project.start_date,
-        project.due_date,
-        project.created_at,
-        project.updated_at
-    )
+            r#"
+            INSERT INTO projects
+                (id, name, description, start_date, due_date, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            project.id,
+            project.name,
+            project.description,
+            project.start_date,
+            project.due_date,
+            project.created_at,
+            project.updated_at
+        )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+            .context(format!("Failed to insert project {} into database", project.id))?; // <= контекст
 
         Ok(project)
     }
@@ -113,25 +111,25 @@ impl ProjectService for ProjectServiceImpl {
         validate_project_name(&project.name)?;
 
         let rows = sqlx::query!(
-        r#"
-        UPDATE projects
-        SET name = $2,
-            description = $3,
-            start_date = $4,
-            due_date = $5,
-            updated_at = $6
-        WHERE id = $1
-        "#,
-        id,
-        project.name,
-        project.description,
-        project.start_date,
-        project.due_date,
-        project.updated_at
-    )
+            r#"
+            UPDATE projects
+            SET name = $2,
+                description = $3,
+                start_date = $4,
+                due_date = $5,
+                updated_at = $6
+            WHERE id = $1
+            "#,
+            id,
+            project.name,
+            project.description,
+            project.start_date,
+            project.due_date,
+            project.updated_at
+        )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .context(format!("Failed to update project {} in database", id))?
             .rows_affected();
 
         if rows == 0 {
@@ -143,12 +141,12 @@ impl ProjectService for ProjectServiceImpl {
 
     async fn delete(&self, id: Id) -> AppResult<()> {
         let rows = sqlx::query!(
-        "DELETE FROM projects WHERE id = $1",
-        id
-    )
+            "DELETE FROM projects WHERE id = $1",
+            id
+        )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?
+            .context(format!("Failed to delete project {} from database", id))?
             .rows_affected();
 
         if rows == 0 {
