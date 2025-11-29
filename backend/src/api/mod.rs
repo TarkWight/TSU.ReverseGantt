@@ -3,6 +3,7 @@ pub mod tasks;
 pub mod dependencies;
 pub mod schedule;
 pub mod reviews;
+pub mod users;
 
 use std::sync::Arc;
 use axum::Router;
