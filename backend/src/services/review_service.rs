@@ -100,9 +100,27 @@ impl ReviewService for ReviewServiceImpl {
         Ok(review)
     }
 
-    async fn update(&self, _id: Id, _review: Review) -> AppResult<Review> {
-        Err(AppError::Internal(anyhow::anyhow!(
-            "update not implemented yet"
-        )))
+    async fn update(&self, id: Id, review: Review) -> AppResult<Review> {
+        let rows_affected = sqlx::query!(
+            r#"
+            UPDATE reviews
+            SET decision = $2, comment = $3, updated_at = $4
+            WHERE id = $1
+            "#,
+            id,
+            review.decision.map(|d| d.to_string()),
+            review.comment,
+            review.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .rows_affected();
+
+        if rows_affected == 0 {
+            return Err(AppError::NotFound(format!("Review with id {} not found", id)));
+        }
+
+        Ok(review)
     }
 }
