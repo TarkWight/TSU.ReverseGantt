@@ -60,10 +60,44 @@ impl ReviewService for ReviewServiceImpl {
         }
     }
 
-    async fn create(&self, _review: Review) -> AppResult<Review> {
-        Err(AppError::Internal(anyhow::anyhow!(
-            "create not implemented yet"
-        )))
+    async fn create(&self, review: Review) -> AppResult<Review> {
+        let reviewer_exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM users WHERE id = $1
+            ) AS "exists!"
+            "#,
+            review.reviewer_id
+        )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+
+        if !reviewer_exists {
+            return Err(AppError::Validation(format!(
+                "Reviewer with id {} does not exist",
+                review.reviewer_id
+            )));
+        }
+
+        sqlx::query!(
+            r#"
+            INSERT INTO reviews (id, task_id, reviewer_id, decision, comment, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            review.id,
+            review.task_id,
+            review.reviewer_id,
+            review.decision.map(|d| d.to_string()),
+            review.comment,
+            review.created_at,
+            review.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+
+        Ok(review)
     }
 
     async fn update(&self, _id: Id, _review: Review) -> AppResult<Review> {
