@@ -7,7 +7,9 @@ pub mod review;
 pub mod artifact;
 pub mod risk;
 pub mod user;
+pub mod membership;
 
+pub use membership::Membership;
 pub use user::User;
 pub use risk::Risk;
 pub use artifact::Artifact;
