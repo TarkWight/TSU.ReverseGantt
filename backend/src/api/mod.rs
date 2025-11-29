@@ -14,6 +14,7 @@ use crate::services::{
     ProjectService,
     TaskService,
     ScheduleService,
+    ReviewService,
 };
 
 use crate::api::{
@@ -39,6 +40,7 @@ pub struct AppState {
     pub task_service: Arc<dyn TaskService>,
     pub dependency_service: Arc<dyn DependencyService>,
     pub schedule_service: Arc<dyn ScheduleService>,
+    pub review_service: Arc<dyn ReviewService>,
 }
 
 pub fn create_router(
@@ -46,12 +48,14 @@ pub fn create_router(
     task_service: Box<dyn TaskService>,
     dependency_service: Box<dyn DependencyService>,
     schedule_service: Box<dyn ScheduleService>,
+    review_service: Box<dyn ReviewService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
         task_service: Arc::from(task_service),
         dependency_service: Arc::from(dependency_service),
         schedule_service: Arc::from(schedule_service),
+        review_service: Arc::from(review_service),
     };
 
     Router::new()
