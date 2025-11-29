@@ -6,10 +6,10 @@ pub mod reviews;
 pub mod users;
 
 use std::sync::Arc;
-use axum::Router;
-use axum::extract::{State, Path};
-use axum::Json;
-use crate::utils::AppResult;
+
+use axum::{extract::{Path, State}, Json, Router};
+use tower_http::cors::CorsLayer;
+
 use crate::services::{
     DependencyService,
     ProjectService,
@@ -17,22 +17,12 @@ use crate::services::{
     ScheduleService,
     ReviewService,
 };
+use crate::utils::AppResult;
 
 use crate::api::{
-    projects::{
-        CreateProjectRequest,
-        UpdateProjectRequest,
-        ProjectResponse,
-    },
-    tasks::{
-        CreateTaskRequest,
-        UpdateTaskRequest,
-        TaskResponse,
-    },
-    dependencies::{
-        CreateDependencyRequest,
-        DependencyResponse,
-    }
+    projects::{CreateProjectRequest, UpdateProjectRequest, ProjectResponse},
+    tasks::{CreateTaskRequest, UpdateTaskRequest, TaskResponse},
+    dependencies::{CreateDependencyRequest, DependencyResponse},
 };
 
 #[derive(Clone)]
@@ -61,9 +51,9 @@ pub fn create_router(
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
-        .route("/login", axum::routing::post(users::login))
         .nest("/projects", create_projects_router().with_state(state.clone()))
-        .nest("/tasks", create_tasks_router().with_state(state))
+        .nest("/tasks", create_tasks_router().with_state(state.clone()))
+        .layer(CorsLayer::permissive())
 }
 
 fn create_projects_router() -> Router<AppState> {
