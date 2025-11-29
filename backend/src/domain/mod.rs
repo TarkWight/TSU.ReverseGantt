@@ -5,7 +5,9 @@ pub mod schedule;
 pub mod dependency;
 pub mod review;
 pub mod artifact;
+pub mod risk;
 
+pub use risk::Risk;
 pub use artifact::Artifact;
 pub use enums::*;
 pub use project::Project;
