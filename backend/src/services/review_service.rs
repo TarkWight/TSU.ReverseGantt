@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
+use anyhow::Context;
 use crate::domain::Review;
-use crate::utils::{AppResult, Id};
-use crate::utils::AppError;
+use crate::utils::{AppError, AppResult, Id};
 
 #[async_trait]
 pub trait ReviewService: Send + Sync {
@@ -43,7 +43,7 @@ impl ReviewService for ReviewServiceImpl {
         )
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .context(format!("Failed to load review for task {}", task_id))?;
 
         if let Some(row) = row {
             Ok(Some(Review {
@@ -71,7 +71,10 @@ impl ReviewService for ReviewServiceImpl {
         )
             .fetch_one(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .context(format!(
+                "Failed to check reviewer {} existence in users table",
+                review.reviewer_id
+            ))?;
 
         if !reviewer_exists {
             return Err(AppError::Validation(format!(
@@ -95,7 +98,10 @@ impl ReviewService for ReviewServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?;
+            .context(format!(
+                "Failed to insert review {} for task {}",
+                review.id, review.task_id
+            ))?;
 
         Ok(review)
     }
@@ -114,7 +120,7 @@ impl ReviewService for ReviewServiceImpl {
         )
             .execute(&self.pool)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {}", e)))?
+            .context(format!("Failed to update review {}", id))?
             .rows_affected();
 
         if rows_affected == 0 {
