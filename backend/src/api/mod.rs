@@ -6,10 +6,10 @@ pub mod reviews;
 pub mod users;
 
 use std::sync::Arc;
-use axum::Router;
-use axum::extract::{State, Path};
-use axum::Json;
-use crate::utils::AppResult;
+
+use axum::{extract::{Path, State}, Json, Router};
+use tower_http::cors::CorsLayer;
+
 use crate::services::{
     DependencyService,
     ProjectService,
@@ -17,22 +17,12 @@ use crate::services::{
     ScheduleService,
     ReviewService,
 };
+use crate::utils::AppResult;
 
 use crate::api::{
-    projects::{
-        CreateProjectRequest,
-        UpdateProjectRequest,
-        ProjectResponse,
-    },
-    tasks::{
-        CreateTaskRequest,
-        UpdateTaskRequest,
-        TaskResponse,
-    },
-    dependencies::{
-        CreateDependencyRequest,
-        DependencyResponse,
-    }
+    projects::{CreateProjectRequest, UpdateProjectRequest, ProjectResponse},
+    tasks::{CreateTaskRequest, UpdateTaskRequest, TaskResponse},
+    dependencies::{CreateDependencyRequest, DependencyResponse},
 };
 
 #[derive(Clone)]
@@ -61,9 +51,10 @@ pub fn create_router(
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
-        .route("/login", axum::routing::post(users::login))
         .nest("/projects", create_projects_router().with_state(state.clone()))
-        .nest("/tasks", create_tasks_router().with_state(state))
+        .nest("/tasks", create_tasks_router().with_state(state.clone()))
+        .nest("/export", create_export_router().with_state(state))
+        .layer(CorsLayer::permissive())
 }
 
 fn create_projects_router() -> Router<AppState> {
@@ -266,4 +257,18 @@ async fn create_review_handler(
         Json(req),
     )
         .await
+}
+
+fn create_export_router() -> Router<AppState> {
+    Router::new()
+        .route("/projects/{id}/tasks", axum::routing::get(export_tasks))
+}
+
+async fn export_tasks(
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<TaskResponse>>> {
+    let pid = crate::utils::parse_id(&project_id)?;
+    let tasks = state.task_service.get_by_project(pid).await?;
+    Ok(Json(tasks.into_iter().map(TaskResponse::from).collect()))
 }
