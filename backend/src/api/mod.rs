@@ -24,7 +24,7 @@ use crate::api::{
     projects::{CreateProjectRequest, UpdateProjectRequest, ProjectResponse},
     tasks::{CreateTaskRequest, UpdateTaskRequest, TaskResponse},
     dependencies::{CreateDependencyRequest, DependencyResponse},
-    users::{LoginRequest, LoginResponse,},
+    users::{LoginRequest, LoginResponse, RegisterRequest},
 };
 
 #[derive(Clone)]
@@ -57,6 +57,7 @@ pub fn create_router(
     Router::new()
         .route("/health", axum::routing::get(health_check))
         .route("/login", axum::routing::post(login_handler))
+        .route("/register", axum::routing::post(register_handler))
         .nest("/projects", create_projects_router())
         .nest("/tasks", create_tasks_router())
         .nest("/export", create_export_router())
@@ -70,6 +71,13 @@ async fn login_handler(
 ) -> AppResult<Json<LoginResponse>> {
     users::login(State(state.user_service), Json(req))
         .await
+}
+
+async fn register_handler(
+    State(state): State<AppState>,
+    Json(req): Json<RegisterRequest>,
+) -> AppResult<Json<LoginResponse>> {
+    users::register(State(state.user_service), Json(req)).await
 }
 
 fn create_projects_router() -> Router<AppState> {
