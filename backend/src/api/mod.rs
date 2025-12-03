@@ -16,6 +16,7 @@ use crate::services::{
     TaskService,
     ScheduleService,
     ReviewService,
+    UserService,
 };
 use crate::utils::AppResult;
 
@@ -23,6 +24,7 @@ use crate::api::{
     projects::{CreateProjectRequest, UpdateProjectRequest, ProjectResponse},
     tasks::{CreateTaskRequest, UpdateTaskRequest, TaskResponse},
     dependencies::{CreateDependencyRequest, DependencyResponse},
+    users::{LoginRequest, LoginResponse, RegisterRequest},
 };
 
 #[derive(Clone)]
@@ -32,6 +34,7 @@ pub struct AppState {
     pub dependency_service: Arc<dyn DependencyService>,
     pub schedule_service: Arc<dyn ScheduleService>,
     pub review_service: Arc<dyn ReviewService>,
+    pub user_service: Arc<dyn UserService>,
 }
 
 pub fn create_router(
@@ -40,6 +43,7 @@ pub fn create_router(
     dependency_service: Box<dyn DependencyService>,
     schedule_service: Box<dyn ScheduleService>,
     review_service: Box<dyn ReviewService>,
+    user_service: Box<dyn UserService>,
 ) -> Router {
     let state = AppState {
         project_service: Arc::from(project_service),
@@ -47,33 +51,52 @@ pub fn create_router(
         dependency_service: Arc::from(dependency_service),
         schedule_service: Arc::from(schedule_service),
         review_service: Arc::from(review_service),
+        user_service: Arc::from(user_service),
     };
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
-        .nest("/projects", create_projects_router().with_state(state.clone()))
-        .nest("/tasks", create_tasks_router().with_state(state.clone()))
-        .nest("/export", create_export_router().with_state(state))
+        .route("/login", axum::routing::post(login_handler))
+        .route("/register", axum::routing::post(register_handler))
+        .nest("/projects", create_projects_router())
+        .nest("/tasks", create_tasks_router())
+        .nest("/export", create_export_router())
         .layer(CorsLayer::permissive())
+        .with_state(state)
+}
+
+async fn login_handler(
+    State(state): State<AppState>,
+    Json(req): Json<LoginRequest>,
+) -> AppResult<Json<LoginResponse>> {
+    users::login(State(state.user_service), Json(req))
+        .await
+}
+
+async fn register_handler(
+    State(state): State<AppState>,
+    Json(req): Json<RegisterRequest>,
+) -> AppResult<Json<LoginResponse>> {
+    users::register(State(state.user_service), Json(req)).await
 }
 
 fn create_projects_router() -> Router<AppState> {
     Router::new()
         .route(
             "/",
-               axum::routing::get(get_projects_handler)
-            .post(create_project_handler),
+            axum::routing::get(get_projects_handler)
+                .post(create_project_handler),
         )
         .route(
             "/{id}",
             axum::routing::get(get_project_handler)
-            .patch(update_project_handler)
-            .delete(delete_project_handler),
+                .patch(update_project_handler)
+                .delete(delete_project_handler),
         )
         .route(
             "/{id}/tasks",
             axum::routing::get(get_tasks_by_project_handler)
-            .post(create_task_for_project_handler),
+                .post(create_task_for_project_handler),
         )
         .route(
             "/{id}/schedule/reverse",
@@ -81,6 +104,30 @@ fn create_projects_router() -> Router<AppState> {
         )
 }
 
+fn create_tasks_router() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/{id}",
+            axum::routing::get(get_task_handler)
+                .patch(update_task_handler)
+                .delete(delete_task_handler),
+        )
+        .route(
+            "/{id}/dependencies",
+            axum::routing::get(get_dependencies_handler)
+                .post(create_dependency_handler),
+        )
+        .route(
+            "/{id}/review",
+            axum::routing::get(get_review_handler)
+                .post(create_review_handler),
+        )
+}
+
+fn create_export_router() -> Router<AppState> {
+    Router::new()
+        .route("/projects/{id}/tasks", axum::routing::get(export_tasks))
+}
 async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "status": "ok",
@@ -123,25 +170,6 @@ async fn delete_project_handler(
     projects::delete_project(Path(id), State(state.project_service)).await
 }
 
-fn create_tasks_router() -> Router<AppState> {
-    Router::new()
-        .route(
-            "/{id}",
-            axum::routing::get(get_task_handler)
-                .patch(update_task_handler)
-                .delete(delete_task_handler),
-        )
-        .route(
-            "/{id}/dependencies",
-            axum::routing::get(get_dependencies_handler)
-                .post(create_dependency_handler),
-        )
-        .route(
-            "/{id}/review",
-            axum::routing::get(get_review_handler)
-                .post(create_review_handler),
-        )
-}
 async fn get_tasks_by_project_handler(
     Path(project_id): Path<String>,
     State(state): State<AppState>,
@@ -257,11 +285,6 @@ async fn create_review_handler(
         Json(req),
     )
         .await
-}
-
-fn create_export_router() -> Router<AppState> {
-    Router::new()
-        .route("/projects/{id}/tasks", axum::routing::get(export_tasks))
 }
 
 async fn export_tasks(
