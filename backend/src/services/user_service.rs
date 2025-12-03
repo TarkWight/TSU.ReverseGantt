@@ -3,11 +3,14 @@ use sqlx::PgPool;
 
 use crate::domain::User;
 use crate::utils::{hash_password, AppError, AppResult};
-use crate::utils::auth::verify_password;
-
+use crate::utils::auth::{validate_password, verify_password};
+use crate::utils::{generate_token};
+use chrono::Utc;
 #[async_trait]
 pub trait UserService: Send + Sync {
     async fn authenticate(&self, email: &str, password: &str) -> AppResult<User>;
+    async fn register(&self, email: String, name: String, password: String) -> AppResult<(User, String)>;
+
 }
 
 pub struct UserServiceImpl {
@@ -60,5 +63,57 @@ impl UserService for UserServiceImpl {
             name: row.name,
             created_at: row.created_at,
         })
+    }
+
+    async fn register(&self, email: String, name: String, password: String) -> AppResult<(User, String)> {
+        validate_password(&password)?;
+
+        let exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM users WHERE email = $1
+            ) AS "exists!"
+            "#,
+            email
+        )
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {e}")))?;
+
+        if exists {
+            return Err(AppError::Validation(format!("User with email {} already exists", email)));
+        }
+
+        let password_hash = hash_password(&password)?;
+
+        let id = crate::utils::generate_id();
+        let now = Utc::now();
+
+        let user = User {
+            id,
+            email: email.clone(),
+            name,
+            created_at: now,
+        };
+
+        sqlx::query!(
+            r#"
+            INSERT INTO users (id, email, name, password_hash, created_at)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            user.id,
+            user.email,
+            user.name,
+            password_hash,
+            user.created_at
+        )
+            .execute(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {e}")))?;
+
+        // TTL 24 hours
+        let token = generate_token(user.id, std::time::Duration::from_secs(86400))?;
+
+        Ok((user, token))
     }
 }
