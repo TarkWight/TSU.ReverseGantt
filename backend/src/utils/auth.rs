@@ -36,3 +36,41 @@ pub fn verify_password(hash: &str, plain: &str) -> Result<bool, AppError> {
         .verify_password(to_verify.as_bytes(), &parsed_hash)
         .is_ok())
 }
+
+pub fn validate_password(password: &str) -> Result<(), AppError> {
+    if password.len() < 8 {
+        return Err(AppError::Validation(
+            "Password must be at least 8 characters long".into(),
+        ));
+    }
+
+    let has_lower = password.chars().any(|c| c.is_ascii_lowercase());
+    let has_upper = password.chars().any(|c| c.is_ascii_uppercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| {
+        !c.is_ascii_alphanumeric() && !c.is_whitespace()
+    });
+
+    if !has_lower {
+        return Err(AppError::Validation(
+            "Password must contain at least one lowercase letter".into(),
+        ));
+    }
+    if !has_upper {
+        return Err(AppError::Validation(
+            "Password must contain at least one uppercase letter".into(),
+        ));
+    }
+    if !has_digit {
+        return Err(AppError::Validation(
+            "Password must contain at least one digit".into(),
+        ));
+    }
+    if !has_special {
+        return Err(AppError::Validation(
+            "Password must contain at least one special character".into(),
+        ));
+    }
+
+    Ok(())
+}
