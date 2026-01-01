@@ -56,13 +56,6 @@ impl From<Project> for ProjectResponse {
     }
 }
 
-pub async fn get_projects(
-    State(service): State<Arc<dyn ProjectService>>,
-) -> AppResult<Json<Vec<ProjectResponse>>> {
-    let projects = service.get_all().await?;
-    Ok(Json(projects.into_iter().map(Into::into).collect()))
-}
-
 pub async fn get_project(
     Path(id): Path<String>,
     State(service): State<Arc<dyn ProjectService>>,

@@ -135,12 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-async fn get_projects_handler(
-    State(state): State<AppState>,
-) -> AppResult<Json<Vec<ProjectResponse>>> {
-    projects::get_projects(State(state.project_service)).await
-}
-
 async fn get_project_handler(
     Path(id): Path<String>,
     State(state): State<AppState>,
