@@ -35,3 +35,15 @@ pub async fn delete_artifact(
     Ok(())
 }
 
+pub async fn get_list_artifacts(
+    auth: AuthContext,
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<ArtifactResponse>>> {
+    let tid = parse_id(&task_id)?;
+    let task = state.task_service.get_by_id(&auth, tid).await?;
+    ensure_project_access(&auth, task.project_id, &state).await?;
+
+    let artifacts = state.artifact_service.get_by_task(tid).await?;
+    Ok(Json(artifacts.into_iter().map(Into::into).collect()))
+}
