@@ -1,99 +1,101 @@
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 
-pub async fn get_task(
-    Path(id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
-) -> AppResult<Json<TaskResponse>> {
-    let task_id = parse_id(&id)?;
-    let task = service.get_by_id(task_id).await?;
-    Ok(Json(task.into()))
-}
+use crate::api::models::TaskResponse;
+use crate::api::requests::{
+    CreateTaskRequest,
+    UpdateTaskRequest,
+};
+use crate::state::AppState;
+use crate::auth::AuthContext;
+use crate::infra::errors::AppResult;
+use crate::utils::parse_id;
 
 pub async fn get_tasks(
+    auth: AuthContext,
     Path(project_id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
+    State(state): State<AppState>,
 ) -> AppResult<Json<Vec<TaskResponse>>> {
-    let pid = parse_id(&project_id)?;
-    let tasks = service.get_by_project(pid).await?;
+    let project_id = parse_id(&project_id)?;
+    let tasks = state.task_service.get_by_project(&auth, project_id).await?;
     Ok(Json(tasks.into_iter().map(Into::into).collect()))
 }
 
-pub async fn create_task(
-    Path(project_id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
-    Json(req): Json<CreateTaskRequest>,
-) -> AppResult<impl IntoResponse> {
-    crate::utils::validate_task_name(&req.name)?;
-
-    let task = Task {
-        id: crate::utils::generate_id(),
-        project_id: parse_id(&project_id)?,
-        parent_task_id: req.parent_task_id.and_then(|s| parse_id(&s).ok()),
-        name: req.name,
-        description: req.description,
-        task_type: req.task_type,
-        status: TaskStatus::Planned,
-        priority: req.priority,
-        estimated_duration: req.estimated_duration,
-        planned_start: None,
-        planned_finish: None,
-        actual_start: None,
-        actual_finish: None,
-        progress: 0,
-        buffer: req.buffer.unwrap_or(0),
-        hardness: req
-            .hardness
-            .unwrap_or(crate::domain::enums::Hardness::Soft),
-        deadline: req.deadline,
-        schedule: Default::default(),
-        created_at: chrono::Utc::now(),
-        updated_at: chrono::Utc::now(),
-    };
-
-    let created = service.create(task).await?;
-    Ok((StatusCode::CREATED, Json(TaskResponse::from(created))))
-}
-
-pub async fn update_task(
+pub async fn get_task(
+    auth: AuthContext,
     Path(id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
-    Json(req): Json<UpdateTaskRequest>,
+    State(state): State<AppState>,
 ) -> AppResult<Json<TaskResponse>> {
     let task_id = parse_id(&id)?;
-    let existing = service.get_by_id(task_id).await?;
-
-    let updated = Task {
-        id: existing.id,
-        project_id: existing.project_id,
-        parent_task_id: existing.parent_task_id,
-        name: req.name.unwrap_or(existing.name),
-        description: req.description.or(existing.description),
-        task_type: req.task_type.unwrap_or(existing.task_type),
-        status: req.status.unwrap_or(existing.status),
-        priority: req.priority.unwrap_or(existing.priority),
-        estimated_duration: req.estimated_duration.or(existing.estimated_duration),
-        planned_start: req.planned_start.or(existing.planned_start),
-        planned_finish: req.planned_finish.or(existing.planned_finish),
-        actual_start: req.actual_start.or(existing.actual_start),
-        actual_finish: req.actual_finish.or(existing.actual_finish),
-        progress: req.progress.unwrap_or(existing.progress),
-        buffer: req.buffer.unwrap_or(existing.buffer),
-        hardness: req.hardness.unwrap_or(existing.hardness),
-        deadline: req.deadline.or(existing.deadline),
-        schedule: existing.schedule,
-        created_at: existing.created_at,
-        updated_at: chrono::Utc::now(),
-    };
-
-    let task = service.update(task_id, updated).await?;
+    let task = state.task_service.get_by_id(&auth, task_id).await?;
     Ok(Json(task.into()))
 }
 
+pub async fn create_task(
+    auth: AuthContext,
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<CreateTaskRequest>,
+) -> AppResult<impl IntoResponse> {
+    let project_id = parse_id(&project_id)?;
+    let parent_task_id = req.parent_task_id
+        .as_ref().and_then(|s| parse_id(s).ok());
+    let owner_id = req.owner_id
+        .as_ref().and_then(|s| parse_id(s).ok());
+
+    let task = state.task_service.create(
+        &auth,
+        project_id,
+        req.name,
+        req.description,
+        req.task_type,
+        req.priority,
+        req.estimated_duration,
+        parent_task_id,
+        req.hardness,
+        req.buffer,
+        owner_id,
+    ).await?;
+
+    Ok((StatusCode::CREATED, Json(TaskResponse::from(task))))
+}
+
+pub async fn update_task(
+    auth: AuthContext,
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<UpdateTaskRequest>,
+) -> AppResult<Json<TaskResponse>> {
+    let task_id = parse_id(&id)?;
+
+    let task = state.task_service.update(
+        &auth,
+        task_id,
+        req.name,
+        req.description,
+        req.task_type,
+        req.status,
+        req.priority,
+        req.estimated_duration,
+        req.progress,
+        req.buffer,
+        req.hardness,
+    ).await?;
+
+    Ok(Json(task.into()))
+}
 
 pub async fn delete_task(
+    auth: AuthContext,
     Path(id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
+    State(state): State<AppState>,
 ) -> AppResult<StatusCode> {
     let task_id = parse_id(&id)?;
-    service.delete(task_id).await?;
+    state.task_service.delete(&auth, task_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+

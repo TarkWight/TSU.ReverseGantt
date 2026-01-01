@@ -1,5 +1,8 @@
 use axum::{
-    extract::{Path, State},
+    extract::{
+        Path,
+        State,
+    },
     Json,
 };
 use chrono::Utc;
@@ -9,7 +12,10 @@ use crate::infra::errors::AppResult;
 use crate::utils::parse_id;
 use crate::auth::AuthContext;
 use crate::auth::permissions::ensure_project_access;
-use crate::api::models::{ProjectStatsResponse, MemberInfo};
+use crate::api::models::{
+    ProjectStatsResponse,
+    MemberInfo,
+};
 use crate::domain::TaskStatus;
 
 pub async fn get_project_stats(
@@ -20,17 +26,25 @@ pub async fn get_project_stats(
     let pid = parse_id(&project_id)?;
     ensure_project_access(&auth, pid, &state).await?;
 
-    let project = state.project_service.get_by_id(&auth, pid).await?;
+    let project = state.project_service
+        .get_by_id(&auth, pid).await?;
 
-    let tasks = state.task_service.get_by_project(&auth, pid).await?;
+    let tasks = state.task_service
+        .get_by_project(&auth, pid).await?;
 
     let total_tasks = tasks.len() as i64;
-    let completed_tasks = tasks.iter()
-        .filter(|t| t.status == TaskStatus::Done).count() as i64;
-    let in_progress_tasks = tasks.iter()
-        .filter(|t| t.status == TaskStatus::InProgress).count() as i64;
-    let needs_review_tasks = tasks.iter()
-        .filter(|t| t.status == TaskStatus::NeedsReview).count() as i64;
+    let completed_tasks = tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::Done)
+        .count() as i64;
+    let in_progress_tasks = tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::InProgress)
+        .count() as i64;
+    let needs_review_tasks = tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::NeedsReview)
+        .count() as i64;
 
     let completion_percent = if total_tasks > 0 {
         (completed_tasks as f64 / total_tasks as f64) * 100.0
@@ -38,16 +52,20 @@ pub async fn get_project_stats(
         0.0
     };
 
-    let critical_tasks_count = tasks.iter()
-        .filter(|t| t.schedule.is_critical).count() as i64;
+    let critical_tasks_count = tasks
+        .iter()
+        .filter(|t| t.schedule.is_critical)
+        .count() as i64;
 
-    let min_slack_seconds = tasks.iter()
+    let min_slack_seconds = tasks
+        .iter()
         .filter_map(|t| t.schedule.slack)
         .min()
         .unwrap_or(0);
     let slack_days = Some(min_slack_seconds / 86400);
 
-    let memberships = state.membership_service.get_by_project(pid).await?;
+    let memberships = state.membership_service
+        .get_by_project(pid).await?;
     let mut members: Vec<MemberInfo> = Vec::new();
     let mut leader: Option<MemberInfo> = None;
 
