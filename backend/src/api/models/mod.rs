@@ -7,3 +7,5 @@ mod user;
 mod artifact;
 
 mod assignment;
+
+mod dependency;
