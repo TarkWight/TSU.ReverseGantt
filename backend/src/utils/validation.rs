@@ -19,3 +19,10 @@ pub fn validate_task_name(name: &str) -> Result<(), AppError> {
     }
     Ok(())
 }
+
+pub fn validate_project_name_optional(name: &Option<String>) -> Result<(), AppError> {
+    if let Some(name) = name {
+        validate_project_name(name)?;
+    }
+    Ok(())
+}
