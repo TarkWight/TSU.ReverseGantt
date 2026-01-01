@@ -1,5 +1,9 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{
+        Path,
+        Query,
+        State,
+    },
     http::StatusCode,
     Json,
 };
@@ -27,7 +31,10 @@ pub async fn get_notifications(
         .await?;
 
     Ok(Json(NotificationsListResponse {
-        notifications: notifications.into_iter().map(Into::into).collect(),
+        notifications: notifications
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         unread_count,
     }))
 }
