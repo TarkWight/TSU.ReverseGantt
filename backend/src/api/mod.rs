@@ -64,29 +64,6 @@ pub fn create_router(
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
-fn create_projects_router() -> Router<AppState> {
-    Router::new()
-        .route(
-            "/",
-            axum::routing::get(get_projects_handler)
-                .post(create_project_handler),
-        )
-        .route(
-            "/{id}",
-            axum::routing::get(get_project_handler)
-                .patch(update_project_handler)
-                .delete(delete_project_handler),
-        )
-        .route(
-            "/{id}/tasks",
-            axum::routing::get(get_tasks_by_project_handler)
-                .post(create_task_for_project_handler),
-        )
-        .route(
-            "/{id}/schedule/reverse",
-            axum::routing::post(reverse_schedule_handler),
-        )
-}
 
 fn create_export_router() -> Router<AppState> {
     Router::new()
@@ -101,15 +78,6 @@ async fn health_check() -> Json<serde_json::Value> {
 
 
 
-async fn reverse_schedule_handler(
-    Path(project_id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<schedule::ReverseScheduleResponse>> {
-    schedule::reverse_schedule(
-        Path(project_id),
-        State(state.schedule_service),
-    ).await
-}
 
 async fn export_tasks(
     Path(project_id): Path<String>,
