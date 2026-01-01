@@ -85,3 +85,11 @@ pub async fn change_project_leader(
 
     Ok(Json(MembershipResponse::from(updated)))
 }
+
+pub async fn get_user_memberships(
+    auth: AuthContext,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<MembershipResponse>>> {
+    let memberships = state.membership_service.get_by_user(auth.user_id).await?;
+    Ok(Json(memberships.into_iter().map(Into::into).collect()))
+}
