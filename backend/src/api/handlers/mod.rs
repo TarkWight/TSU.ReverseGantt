@@ -7,3 +7,5 @@ pub mod users;
 pub mod artifacts;
 
 pub mod assignments;
+
+pub mod memberships;
