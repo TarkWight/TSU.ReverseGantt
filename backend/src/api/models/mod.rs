@@ -9,3 +9,5 @@ mod artifact;
 mod assignment;
 
 mod dependency;
+
+mod membership;
