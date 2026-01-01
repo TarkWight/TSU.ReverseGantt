@@ -130,19 +130,6 @@ async fn get_dependencies_handler(
         .await
 }
 
-async fn create_dependency_handler(
-    Path(from_task_id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<CreateDependencyRequest>,
-) -> AppResult<impl axum::response::IntoResponse> {
-    dependencies::create_dependency(
-        Path(from_task_id),
-        State(state.dependency_service),
-        Json(req)
-    )
-        .await
-}
-
 async fn reverse_schedule_handler(
     Path(project_id): Path<String>,
     State(state): State<AppState>,
