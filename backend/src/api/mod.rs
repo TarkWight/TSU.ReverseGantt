@@ -135,12 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-async fn create_project_handler(
-    State(state): State<AppState>,
-    Json(req): Json<CreateProjectRequest>,
-) -> AppResult<impl axum::response::IntoResponse> {
-    projects::create_project(State(state.project_service), Json(req)).await
-}
 
 async fn update_project_handler(
     Path(id): Path<String>,

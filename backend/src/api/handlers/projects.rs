@@ -15,3 +15,24 @@ pub async fn get_project(
     let project = service.get_by_id(project_id).await?;
     Ok(Json(project.into()))
 }
+
+pub async fn create_project(
+    State(service): State<Arc<dyn ProjectService>>,
+    Json(req): Json<CreateProjectRequest>,
+) -> AppResult<impl IntoResponse> {
+    validate_project_name(&req.name)?;
+
+    let now = chrono::Utc::now();
+    let project = Project {
+        id: generate_id(),
+        name: req.name,
+        description: req.description,
+        start_date: req.start_date,
+        due_date: req.due_date,
+        created_at: now,
+        updated_at: now,
+    };
+
+    let created = service.create(project).await?;
+    Ok((StatusCode::CREATED, Json(ProjectResponse::from(created))))
+}

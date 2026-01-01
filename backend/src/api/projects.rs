@@ -58,26 +58,7 @@ impl From<Project> for ProjectResponse {
 
 
 
-pub async fn create_project(
-    State(service): State<Arc<dyn ProjectService>>,
-    Json(req): Json<CreateProjectRequest>,
-) -> AppResult<impl IntoResponse> {
-    validate_project_name(&req.name)?;
 
-    let now = chrono::Utc::now();
-    let project = Project {
-        id: generate_id(),
-        name: req.name,
-        description: req.description,
-        start_date: req.start_date,
-        due_date: req.due_date,
-        created_at: now,
-        updated_at: now,
-    };
-
-    let created = service.create(project).await?;
-    Ok((StatusCode::CREATED, Json(ProjectResponse::from(created))))
-}
 
 pub async fn update_project(
     Path(id): Path<String>,
