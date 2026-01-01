@@ -41,12 +41,4 @@ impl From<Dependency> for DependencyResponse {
     }
 }
 
-pub async fn get_dependencies(
-    Path(task_id): Path<String>,
-    State(service): State<std::sync::Arc<dyn DependencyService>>,
-) -> AppResult<Json<Vec<DependencyResponse>>> {
-    let tid = parse_id(&task_id)?;
-    let deps = service.get_by_task(tid).await?;
-    Ok(Json(deps.into_iter().map(Into::into).collect()))
-}
 
