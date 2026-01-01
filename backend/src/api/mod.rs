@@ -20,13 +20,6 @@ use crate::services::{
 };
 use crate::utils::AppResult;
 
-use crate::api::{
-    projects::{CreateProjectRequest, UpdateProjectRequest, ProjectResponse},
-    tasks::{CreateTaskRequest, UpdateTaskRequest, TaskResponse},
-    dependencies::{CreateDependencyRequest, DependencyResponse},
-    users::{LoginRequest, LoginResponse, RegisterRequest},
-};
-
 #[derive(Clone)]
 pub struct AppState {
     pub project_service: Arc<dyn ProjectService>,
@@ -56,10 +49,6 @@ pub fn create_router(
 
     Router::new()
         .route("/health", axum::routing::get(health_check))
-        .route("/login", axum::routing::post(login_handler))
-        .route("/register", axum::routing::post(register_handler))
-        .nest("/projects", create_projects_router())
-        .nest("/tasks", create_tasks_router())
         .nest("/export", create_export_router())
         .layer(CorsLayer::permissive())
         .with_state(state)
@@ -75,9 +64,6 @@ async fn health_check() -> Json<serde_json::Value> {
         "service": "reverse-gantt-backend"
     }))
 }
-
-
-
 
 async fn export_tasks(
     Path(project_id): Path<String>,
