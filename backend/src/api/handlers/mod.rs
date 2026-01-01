@@ -9,3 +9,5 @@ pub mod artifacts;
 pub mod assignments;
 
 pub mod memberships;
+
+pub mod reviews;
