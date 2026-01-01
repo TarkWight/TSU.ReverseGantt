@@ -135,41 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-async fn get_projects_handler(
-    State(state): State<AppState>,
-) -> AppResult<Json<Vec<ProjectResponse>>> {
-    projects::get_projects(State(state.project_service)).await
-}
-
-async fn get_project_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<ProjectResponse>> {
-    projects::get_project(Path(id), State(state.project_service)).await
-}
-
-async fn create_project_handler(
-    State(state): State<AppState>,
-    Json(req): Json<CreateProjectRequest>,
-) -> AppResult<impl axum::response::IntoResponse> {
-    projects::create_project(State(state.project_service), Json(req)).await
-}
-
-async fn update_project_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<UpdateProjectRequest>,
-) -> AppResult<Json<ProjectResponse>> {
-    projects::update_project(Path(id), State(state.project_service), Json(req)).await
-}
-
-async fn delete_project_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<axum::http::StatusCode> {
-    projects::delete_project(Path(id), State(state.project_service)).await
-}
-
 async fn get_tasks_by_project_handler(
     Path(project_id): Path<String>,
     State(state): State<AppState>,
