@@ -135,17 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-async fn get_tasks_by_project_handler(
-    Path(project_id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<Vec<TaskResponse>>> {
-    tasks::get_tasks(
-        Path(project_id),
-        State(state.task_service),
-    )
-        .await
-}
-
 async fn create_task_for_project_handler(
     Path(project_id): Path<String>,
     State(state): State<AppState>,
