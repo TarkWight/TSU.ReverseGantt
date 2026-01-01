@@ -148,17 +148,6 @@ async fn create_task_for_project_handler(
         .await
 }
 
-async fn get_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<TaskResponse>> {
-    tasks::get_task(
-        Path(id),
-        State(state.task_service),
-    )
-        .await
-}
-
 async fn update_task_handler(
     Path(id): Path<String>,
     State(state): State<AppState>,
