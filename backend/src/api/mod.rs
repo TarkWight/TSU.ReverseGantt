@@ -88,26 +88,6 @@ fn create_projects_router() -> Router<AppState> {
         )
 }
 
-fn create_tasks_router() -> Router<AppState> {
-    Router::new()
-        .route(
-            "/{id}",
-            axum::routing::get(get_task_handler)
-                .patch(update_task_handler)
-                .delete(delete_task_handler),
-        )
-        .route(
-            "/{id}/dependencies",
-            axum::routing::get(get_dependencies_handler)
-                .post(create_dependency_handler),
-        )
-        .route(
-            "/{id}/review",
-            axum::routing::get(get_review_handler)
-                .post(create_review_handler),
-        )
-}
-
 fn create_export_router() -> Router<AppState> {
     Router::new()
         .route("/projects/{id}/tasks", axum::routing::get(export_tasks))
@@ -129,30 +109,6 @@ async fn reverse_schedule_handler(
         Path(project_id),
         State(state.schedule_service),
     ).await
-}
-
-async fn get_review_handler(
-    Path(task_id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<Option<reviews::ReviewResponse>>> {
-    reviews::get_review(
-        Path(task_id),
-        State(state.review_service),
-    )
-        .await
-}
-
-async fn create_review_handler(
-    Path(task_id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<reviews::CreateReviewRequest>,
-) -> AppResult<impl axum::response::IntoResponse> {
-    reviews::create_review(
-        Path(task_id),
-        State(state.review_service),
-        Json(req),
-    )
-        .await
 }
 
 async fn export_tasks(
