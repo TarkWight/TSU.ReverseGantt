@@ -47,3 +47,11 @@ pub async fn get_list_artifacts(
     let artifacts = state.artifact_service.get_by_task(tid).await?;
     Ok(Json(artifacts.into_iter().map(Into::into).collect()))
 }
+
+pub async fn get_user_assignments(
+    auth: AuthContext,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<AssignmentResponse>>> {
+    let assignments = state.assignment_service.get_by_user(auth.user_id).await?;
+    Ok(Json(assignments.into_iter().map(Into::into).collect()))
+}
