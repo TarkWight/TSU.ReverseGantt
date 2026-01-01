@@ -18,6 +18,20 @@ pub fn validate_project_name_optional(name: &Option<String>) -> Result<(), AppEr
     Ok(())
 }
 
+pub fn validate_project_time(
+    start: &Option<chrono::NaiveDate>,
+    end: &chrono::NaiveDate,
+) -> Result<(), AppError> {
+    if let Some(start_date) = start {
+        if start_date > end {
+            return Err(AppError::Validation(
+                "Project start date must not be later than due date".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 // Task
 
 pub fn validate_task_name(name: &str) -> Result<(), AppError> {
