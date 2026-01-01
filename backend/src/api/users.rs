@@ -1,23 +1,6 @@
-use axum::{extract::State, Json};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::Duration;
-use crate::services::UserService;
-use crate::utils::{AppResult, Id, jwt::generate_token};
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
-}
+use serde::{Deserialize};
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginResponse {
-    pub token: String,
-    pub user_id: String,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
