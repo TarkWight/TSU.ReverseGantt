@@ -40,3 +40,18 @@ pub async fn create_assignment(
     let created = state.assignment_service.create(assignment).await?;
     Ok((StatusCode::CREATED, Json(AssignmentResponse::from(created))))
 }
+
+pub async fn delete_assignment(
+    auth: AuthContext,
+    Path(assignment_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    let assignment_id = parse_id(&assignment_id)?;
+    let assignment = state.assignment_service.get_by_id(assignment_id).await?;
+    let task = state.task_service.get_by_id(&auth, assignment.task_id).await?;
+    ensure_can_manage_members(&auth, task.project_id, &state).await?;
+
+    state.assignment_service.delete(assignment_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
