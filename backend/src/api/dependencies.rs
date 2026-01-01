@@ -1,21 +1,3 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
-use serde::{Deserialize, Serialize};
-
-use crate::domain::{Dependency, DepType};
-use crate::services::DependencyService;
-use crate::utils::{AppResult, parse_id};
-
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateDependencyRequest {
-    pub to_task_id: String,
-    pub dep_type: DepType,
-    pub min_gap: i64,
-}
-
+pub use crate::api::requests::CreateDependencyRequest;
+pub use crate::api::models::DependencyResponse;
+pub use crate::api::handlers::dependencies::{get_dependencies, create_dependency, delete_dependency};
