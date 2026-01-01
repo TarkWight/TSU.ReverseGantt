@@ -93,3 +93,15 @@ pub async fn get_user_memberships(
     let memberships = state.membership_service.get_by_user(auth.user_id).await?;
     Ok(Json(memberships.into_iter().map(Into::into).collect()))
 }
+
+pub async fn get_project_memberships(
+    auth: AuthContext,
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<MembershipResponse>>> {
+    let project_id = parse_id(&project_id)?;
+    ensure_project_access(&auth, project_id, &state).await?;
+
+    let memberships = state.membership_service.get_by_project(project_id).await?;
+    Ok(Json(memberships.into_iter().map(Into::into).collect()))
+}
