@@ -30,3 +30,18 @@ pub async fn get_unread_count(
 
     Ok(Json(serde_json::json!({ "unreadCount": count })))
 }
+
+pub async fn mark_as_read(
+    auth: AuthContext,
+    Path(notification_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    let id = parse_id(&notification_id)?;
+
+    state
+        .notification_service
+        .mark_as_read(id, auth.user_id)
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
