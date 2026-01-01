@@ -45,3 +45,16 @@ pub async fn mark_as_read(
 
     Ok(StatusCode::NO_CONTENT)
 }
+
+pub async fn mark_all_as_read(
+    auth: AuthContext,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    state
+        .notification_service
+        .mark_all_as_read(auth.user_id)
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
