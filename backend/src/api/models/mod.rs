@@ -5,3 +5,5 @@ mod task;
 mod user;
 
 mod artifact;
+
+mod assignment;
