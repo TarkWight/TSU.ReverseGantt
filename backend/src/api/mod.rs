@@ -64,13 +64,6 @@ pub fn create_router(
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
-async fn register_handler(
-    State(state): State<AppState>,
-    Json(req): Json<RegisterRequest>,
-) -> AppResult<Json<LoginResponse>> {
-    users::register(State(state.user_service), Json(req)).await
-}
-
 fn create_projects_router() -> Router<AppState> {
     Router::new()
         .route(

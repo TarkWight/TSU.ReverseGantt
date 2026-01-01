@@ -15,3 +15,17 @@ pub async fn login(
         user_id: user.id.to_string(),
     }))
 }
+
+pub async fn register(
+    State(service): State<Arc<dyn UserService>>,
+    Json(req): Json<RegisterRequest>,
+) -> AppResult<Json<LoginResponse>> {
+    let (user, token) = service
+        .register(req.email, req.name, req.password)
+        .await?;
+
+    Ok(Json(LoginResponse {
+        token,
+        user_id: user.id.to_string(),
+    }))
+}
