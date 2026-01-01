@@ -62,11 +62,3 @@ impl From<Project> for ProjectResponse {
 
 
 
-pub async fn delete_project(
-    Path(id): Path<String>,
-    State(service): State<Arc<dyn ProjectService>>,
-) -> AppResult<StatusCode> {
-    let project_id = parse_id(&id)?;
-    service.delete(project_id).await?;
-    Ok(StatusCode::NO_CONTENT)
-}

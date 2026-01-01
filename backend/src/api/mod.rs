@@ -134,12 +134,6 @@ async fn health_check() -> Json<serde_json::Value> {
         "service": "reverse-gantt-backend"
     }))
 }
-async fn delete_project_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<axum::http::StatusCode> {
-    projects::delete_project(Path(id), State(state.project_service)).await
-}
 
 async fn get_tasks_by_project_handler(
     Path(project_id): Path<String>,
