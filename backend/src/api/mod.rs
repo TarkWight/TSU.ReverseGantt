@@ -4,6 +4,7 @@ pub mod dependencies;
 pub mod schedule;
 pub mod reviews;
 pub mod users;
+pub mod models;
 
 use std::sync::Arc;
 
