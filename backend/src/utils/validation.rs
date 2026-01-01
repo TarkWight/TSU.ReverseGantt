@@ -1,5 +1,6 @@
 use crate::utils::AppError;
 
+// Project
 pub fn validate_project_name(name: &str) -> Result<(), AppError> {
     if name.is_empty() {
         return Err(AppError::Validation("Project name cannot be empty".into()));
@@ -9,6 +10,43 @@ pub fn validate_project_name(name: &str) -> Result<(), AppError> {
     }
     Ok(())
 }
+
+pub fn validate_project_name_optional(name: &Option<String>) -> Result<(), AppError> {
+    if let Some(name) = name {
+        validate_project_name(name)?;
+    }
+    Ok(())
+}
+
+pub fn validate_project_time(
+    start: &Option<chrono::NaiveDate>,
+    end: &chrono::NaiveDate,
+) -> Result<(), AppError> {
+    if let Some(start_date) = start {
+        if start_date > end {
+            return Err(AppError::Validation(
+                "Project start date must not be later than due date".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_project_optioanl_time(
+    start: &Option<chrono::NaiveDate>,
+    end: &Option<chrono::NaiveDate>,
+) -> Result<(), AppError> {
+    if let (Some(start_date), Some(end_date)) = (start, end) {
+        if start_date > end_date {
+            return Err(AppError::Validation(
+                "Project start date must not be later than due date".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+// Task
 
 pub fn validate_task_name(name: &str) -> Result<(), AppError> {
     if name.is_empty() {
