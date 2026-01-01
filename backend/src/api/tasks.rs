@@ -93,18 +93,3 @@ impl From<Task> for TaskResponse {
         }
     }
 }
-
-
-
-
-
-
-
-pub async fn delete_task(
-    Path(id): Path<String>,
-    State(service): State<std::sync::Arc<dyn TaskService>>,
-) -> AppResult<StatusCode> {
-    let task_id = parse_id(&id)?;
-    service.delete(task_id).await?;
-    Ok(StatusCode::NO_CONTENT)
-}

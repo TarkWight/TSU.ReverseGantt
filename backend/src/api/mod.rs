@@ -135,18 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-
-async fn delete_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<axum::http::StatusCode> {
-    tasks::delete_task(
-        Path(id),
-        State(state.task_service),
-    )
-        .await
-}
-
 async fn get_dependencies_handler(
     Path(task_id): Path<String>,
     State(state): State<AppState>,

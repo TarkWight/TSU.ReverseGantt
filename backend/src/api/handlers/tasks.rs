@@ -87,3 +87,13 @@ pub async fn update_task(
     let task = service.update(task_id, updated).await?;
     Ok(Json(task.into()))
 }
+
+
+pub async fn delete_task(
+    Path(id): Path<String>,
+    State(service): State<std::sync::Arc<dyn TaskService>>,
+) -> AppResult<StatusCode> {
+    let task_id = parse_id(&id)?;
+    service.delete(task_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
