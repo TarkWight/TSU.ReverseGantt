@@ -32,3 +32,30 @@ pub async fn get_dependencies(
     let deps = service.get_by_task(tid).await?;
     Ok(Json(deps.into_iter().map(Into::into).collect()))
 }
+
+pub async fn delete_dependency(
+    auth: AuthContext,
+    Path((task_id, dep_id)): Path<(String, String)>,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    let task_id = parse_id(&task_id)?;
+    let dep_id = parse_id(&dep_id)?;
+
+    let dependency = state.dependency_service.get_by_id(dep_id).await?;
+
+    if dependency.from_task_id != task_id && dependency.to_task_id != task_id {
+        return Err(AppError::BadRequest("Dependency does not belong to this task".to_string()));
+    }
+
+    let mut has_permission = ensure_can_manage_dependencies(&auth, dependency.from_task_id, &state).await.is_ok();
+    if !has_permission {
+        has_permission = ensure_can_manage_dependencies(&auth, dependency.to_task_id, &state).await.is_ok();
+    }
+
+    if !has_permission {
+        return Err(AppError::BadRequest("You do not have permission to delete this dependency".to_string()));
+    }
+
+    state.dependency_service.delete(dep_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
