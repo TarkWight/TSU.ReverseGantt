@@ -55,3 +55,33 @@ pub async fn delete_membership(
     state.membership_service.delete(membership_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+pub async fn change_project_leader(
+    auth: AuthContext,
+    Path(project_id): Path<String>,
+    State(state): State<AppState>,
+    Json(req): Json<ChangeProjectLeaderRequest>,
+) -> AppResult<Json<MembershipResponse>> {
+    let project_id = parse_id(&project_id)?;
+    ensure_can_manage_members(&auth, project_id, &state).await?;
+
+    let new_leader_id = parse_id(&req.new_leader_id)?;
+
+    let new_leader_user = state.user_service.get_by_id(new_leader_id).await?;
+    if new_leader_user.global_role != GlobalRole::Student {
+        return Err(AppError::Validation("New leader must be a Student, not a Teacher".to_string()));
+    }
+
+    let new_leader_membership = state
+        .membership_service
+        .get_by_project_and_user(project_id, new_leader_id)
+        .await?;
+
+    let current_leader = state.membership_service.get_leader(project_id).await?
+        .ok_or_else(|| AppError::Internal(anyhow::anyhow!("Project has no leader")))?;
+
+    state.membership_service.update_leader_status(current_leader.id, false).await?;
+    let updated = state.membership_service.update_leader_status(new_leader_membership.id, true).await?;
+
+    Ok(Json(MembershipResponse::from(updated)))
+}
