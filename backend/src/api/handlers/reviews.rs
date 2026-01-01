@@ -19,3 +19,12 @@ pub async fn create_review(
     let created = service.create(review).await?;
     Ok((StatusCode::CREATED, Json(ReviewResponse::from(created))))
 }
+
+pub async fn get_review(
+    Path(task_id): Path<String>,
+    State(service): State<std::sync::Arc<dyn ReviewService>>,
+) -> AppResult<Json<Option<ReviewResponse>>> {
+    let tid = parse_id(&task_id)?;
+    let review = service.get_by_task(tid).await?;
+    Ok(Json(review.map(Into::into)))
+}

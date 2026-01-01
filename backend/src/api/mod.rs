@@ -111,16 +111,6 @@ async fn reverse_schedule_handler(
     ).await
 }
 
-async fn get_review_handler(
-    Path(task_id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<Option<reviews::ReviewResponse>>> {
-    reviews::get_review(
-        Path(task_id),
-        State(state.review_service),
-    )
-        .await
-}
 async fn export_tasks(
     Path(project_id): Path<String>,
     State(state): State<AppState>,

@@ -50,11 +50,3 @@ impl From<Review> for ReviewResponse {
     }
 }
 
-pub async fn get_review(
-    Path(task_id): Path<String>,
-    State(service): State<std::sync::Arc<dyn ReviewService>>,
-) -> AppResult<Json<Option<ReviewResponse>>> {
-    let tid = parse_id(&task_id)?;
-    let review = service.get_by_task(tid).await?;
-    Ok(Json(review.map(Into::into)))
-}
