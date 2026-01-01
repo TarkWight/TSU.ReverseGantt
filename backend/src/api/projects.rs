@@ -56,14 +56,7 @@ impl From<Project> for ProjectResponse {
     }
 }
 
-pub async fn get_project(
-    Path(id): Path<String>,
-    State(service): State<Arc<dyn ProjectService>>,
-) -> AppResult<Json<ProjectResponse>> {
-    let project_id = parse_id(&id)?;
-    let project = service.get_by_id(project_id).await?;
-    Ok(Json(project.into()))
-}
+
 
 pub async fn create_project(
     State(service): State<Arc<dyn ProjectService>>,
