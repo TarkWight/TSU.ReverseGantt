@@ -34,3 +34,24 @@ pub async fn update_membership_tags(
     let membership = state.membership_service.update_tags(membership_id, req.tags).await?;
     Ok(Json(MembershipResponse::from(membership)))
 }
+
+pub async fn delete_membership(
+    auth: AuthContext,
+    Path(membership_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    let membership_id = parse_id(&membership_id)?;
+    let existing_membership = state.membership_service.get_by_id(membership_id).await?;
+    ensure_can_manage_members(&auth, existing_membership.project_id, &state).await?;
+
+    if existing_membership.is_leader {
+        let memberships = state.membership_service.get_by_project(existing_membership.project_id).await?;
+        let leader_count = memberships.iter().filter(|m| m.is_leader).count();
+        if leader_count <= 1 {
+            return Err(AppError::Validation("Cannot remove the only project leader".to_string()));
+        }
+    }
+
+    state.membership_service.delete(membership_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
