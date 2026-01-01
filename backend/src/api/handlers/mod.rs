@@ -1,17 +1,11 @@
 pub mod projects;
-
 pub mod tasks;
-
 pub mod users;
-
 pub mod artifacts;
-
 pub mod assignments;
-
+pub mod dependencies;
 pub mod memberships;
-
 pub mod reviews;
-
+pub mod notifications;
 pub mod schedule;
-
 pub mod project_stats;

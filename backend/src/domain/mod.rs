@@ -1,23 +1,6 @@
+pub mod entities;
 pub mod enums;
-pub mod project;
-pub mod task;
-pub mod schedule;
-pub mod dependency;
-pub mod review;
-pub mod artifact;
-pub mod risk;
-pub mod user;
-pub mod membership;
-pub mod assignment;
 
-pub use assignment::Assignment;
-pub use membership::Membership;
-pub use user::User;
-pub use risk::Risk;
-pub use artifact::Artifact;
+pub use entities::*;
+
 pub use enums::*;
-pub use project::Project;
-pub use task::Task;
-pub use schedule::Schedule;
-pub use dependency::Dependency;
-pub use review::Review;
