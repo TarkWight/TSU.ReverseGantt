@@ -18,3 +18,15 @@ pub async fn get_notifications(
         unread_count,
     }))
 }
+
+pub async fn get_unread_count(
+    auth: AuthContext,
+    State(state): State<AppState>,
+) -> AppResult<Json<serde_json::Value>> {
+    let count = state
+        .notification_service
+        .get_unread_count(auth.user_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({ "unreadCount": count })))
+}
