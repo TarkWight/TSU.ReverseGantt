@@ -21,3 +21,17 @@ pub async fn create_artifact(
     let created = state.artifact_service.create(artifact).await?;
     Ok(Json(created.into()))
 }
+
+pub async fn delete_artifact(
+    auth: AuthContext,
+    Path((task_id, artifact_id)): Path<(String, String)>,
+    State(state): State<AppState>,
+) -> AppResult<()> {
+    let tid = parse_id(&task_id)?;
+    let aid = parse_id(&artifact_id)?;
+    ensure_can_edit_task(&auth, tid, &state).await?;
+
+    state.artifact_service.delete(tid, aid).await?;
+    Ok(())
+}
+
