@@ -135,65 +135,6 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
-async fn get_tasks_by_project_handler(
-    Path(project_id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<Vec<TaskResponse>>> {
-    tasks::get_tasks(
-        Path(project_id),
-        State(state.task_service),
-    )
-        .await
-}
-
-async fn create_task_for_project_handler(
-    Path(project_id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<CreateTaskRequest>,
-) -> AppResult<impl axum::response::IntoResponse> {
-    tasks::create_task(
-        Path(project_id),
-        State(state.task_service),
-        Json(req),
-    )
-        .await
-}
-
-async fn get_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<Json<TaskResponse>> {
-    tasks::get_task(
-        Path(id),
-        State(state.task_service),
-    )
-        .await
-}
-
-async fn update_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<UpdateTaskRequest>,
-) -> AppResult<Json<TaskResponse>> {
-    tasks::update_task(
-        Path(id),
-        State(state.task_service),
-        Json(req),
-    )
-        .await
-}
-
-async fn delete_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-) -> AppResult<axum::http::StatusCode> {
-    tasks::delete_task(
-        Path(id),
-        State(state.task_service),
-    )
-        .await
-}
-
 async fn get_dependencies_handler(
     Path(task_id): Path<String>,
     State(state): State<AppState>,
