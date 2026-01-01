@@ -5,7 +5,7 @@ pub use crate::api::models::{
 pub use crate::api::requests::{
     LoginRequest,
     RegisterRequest,
-    UpdateEmailNotificationsRequest.
+    UpdateEmailNotificationsRequest,
 };
 pub use crate::api::handlers::users::{
     login,

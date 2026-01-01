@@ -7,4 +7,3 @@ pub struct CreateArtifactRequest {
     pub uri: String,
     pub kind: String,
 }
-
