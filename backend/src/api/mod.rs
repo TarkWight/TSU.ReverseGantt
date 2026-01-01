@@ -134,16 +134,6 @@ async fn health_check() -> Json<serde_json::Value> {
         "service": "reverse-gantt-backend"
     }))
 }
-
-
-async fn update_project_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<UpdateProjectRequest>,
-) -> AppResult<Json<ProjectResponse>> {
-    projects::update_project(Path(id), State(state.project_service), Json(req)).await
-}
-
 async fn delete_project_handler(
     Path(id): Path<String>,
     State(state): State<AppState>,

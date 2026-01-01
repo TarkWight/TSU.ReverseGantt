@@ -60,27 +60,7 @@ impl From<Project> for ProjectResponse {
 
 
 
-pub async fn update_project(
-    Path(id): Path<String>,
-    State(service): State<Arc<dyn ProjectService>>,
-    Json(req): Json<UpdateProjectRequest>,
-) -> AppResult<Json<ProjectResponse>> {
-    let project_id = parse_id(&id)?;
-    let existing = service.get_by_id(project_id).await?;
 
-    let updated = Project {
-        id: existing.id,
-        name: req.name.unwrap_or(existing.name),
-        description: req.description.or(existing.description),
-        start_date: req.start_date.or(existing.start_date),
-        due_date: req.due_date.unwrap_or(existing.due_date),
-        created_at: existing.created_at,
-        updated_at: chrono::Utc::now(),
-    };
-
-    let project = service.update(project_id, updated).await?;
-    Ok(Json(project.into()))
-}
 
 pub async fn delete_project(
     Path(id): Path<String>,
