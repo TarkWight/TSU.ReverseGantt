@@ -55,3 +55,15 @@ pub async fn delete_assignment(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub async fn get_task_assignments(
+    auth: AuthContext,
+    Path(task_id): Path<String>,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<AssignmentResponse>>> {
+    let task_id = parse_id(&task_id)?;
+    let task = state.task_service.get_by_id(&auth, task_id).await?;
+    ensure_project_access(&auth, task.project_id, &state).await?;
+
+    let assignments = state.assignment_service.get_by_task(task_id).await?;
+    Ok(Json(assignments.into_iter().map(Into::into).collect()))
+}
