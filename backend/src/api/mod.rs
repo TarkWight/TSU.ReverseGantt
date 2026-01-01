@@ -136,19 +136,6 @@ async fn health_check() -> Json<serde_json::Value> {
 }
 
 
-async fn update_task_handler(
-    Path(id): Path<String>,
-    State(state): State<AppState>,
-    Json(req): Json<UpdateTaskRequest>,
-) -> AppResult<Json<TaskResponse>> {
-    tasks::update_task(
-        Path(id),
-        State(state.task_service),
-        Json(req),
-    )
-        .await
-}
-
 async fn delete_task_handler(
     Path(id): Path<String>,
     State(state): State<AppState>,
