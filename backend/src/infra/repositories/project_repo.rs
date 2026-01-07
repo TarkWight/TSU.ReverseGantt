@@ -66,4 +66,25 @@ impl ProjectRepository for ProjectRepository {
             updated_at: r.updated_at,
         }))
     }
+
+    async fn insert(&self, project: &Project) -> anyhow::Result<()> {
+        sqlx::query!(
+            r#"
+            INSERT INTO projects (id, name, description, start_date, due_date, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            project.id,
+            project.name,
+            project.description,
+            project.start_date,
+            project.due_date,
+            project.created_at,
+            project.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert project")?;
+
+        Ok(())
+    }
 }
