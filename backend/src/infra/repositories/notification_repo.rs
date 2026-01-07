@@ -81,7 +81,26 @@ impl NotificationRepository for PgNotificationRepository {
     }
 
     async fn insert(&self, notification: &Notification) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO notifications (id, user_id, notification_type, title, message, task_id, project_id, is_read, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            "#,
+            notification.id,
+            notification.user_id,
+            notification.notification_type.to_string(),
+            notification.title,
+            notification.message,
+            notification.task_id,
+            notification.project_id,
+            notification.is_read,
+            notification.created_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert notification")?;
+
+        Ok(())
     }
 
     async fn mark_as_read(&self, id: Id, user_id: Id) -> anyhow::Result<bool> {
