@@ -198,7 +198,31 @@ impl TaskRepository for PgTaskRepository {
     }
 
     async fn update(&self, task: &Task) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            r#"
+            UPDATE tasks SET
+                name = $2, description = $3, task_type = $4, status = $5,
+                priority = $6, estimated_duration = $7, progress = $8,
+                buffer = $9, hardness = $10, updated_at = $11
+            WHERE id = $1
+            "#,
+            task.id,
+            task.name,
+            task.description,
+            task.task_type.to_string(),
+            task.status.to_string(),
+            task.priority.to_string(),
+            task.estimated_duration,
+            task.progress,
+            task.buffer,
+            task.hardness.to_string(),
+            task.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update task")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
