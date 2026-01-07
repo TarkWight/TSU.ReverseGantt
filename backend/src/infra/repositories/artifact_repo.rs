@@ -77,7 +77,24 @@ impl ArtifactRepository for PgArtifactRepository {
     }
 
     async fn insert(&self, artifact: &Artifact) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO artifacts (id, task_id, name, uri, kind, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            artifact.id,
+            artifact.task_id,
+            artifact.name,
+            artifact.uri,
+            artifact.kind,
+            artifact.created_at,
+            artifact.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert artifact")?;
+
+        Ok(())
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
