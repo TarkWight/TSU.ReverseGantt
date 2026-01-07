@@ -167,7 +167,16 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn update_leader(&self, id: Id, is_leader: bool) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "UPDATE memberships SET is_leader = $2 WHERE id = $1",
+            id,
+            is_leader
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update leader")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn update_tags(&self, id: Id, tags: &[String]) -> anyhow::Result<bool> {
