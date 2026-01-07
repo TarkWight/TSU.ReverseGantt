@@ -180,7 +180,16 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn update_tags(&self, id: Id, tags: &[String]) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "UPDATE memberships SET tags = $2 WHERE id = $1",
+            id,
+            tags
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update tags")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
