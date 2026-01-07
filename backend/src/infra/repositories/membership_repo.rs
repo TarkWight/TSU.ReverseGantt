@@ -148,7 +148,22 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn insert(&self, membership: &Membership) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO memberships (id, project_id, user_id, is_leader, tags)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            membership.id,
+            membership.project_id,
+            membership.user_id,
+            membership.is_leader,
+            &membership.tags
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert membership")?;
+
+        Ok(())
     }
 
     async fn update_leader(&self, id: Id, is_leader: bool) -> anyhow::Result<bool> {
