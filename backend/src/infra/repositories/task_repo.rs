@@ -161,7 +161,40 @@ impl TaskRepository for PgTaskRepository {
     }
 
     async fn insert(&self, task: &Task) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO tasks (
+                id, project_id, parent_task_id, name, description,
+                task_type, status, priority, estimated_duration,
+                progress, buffer, hardness,
+                schedule_ls, schedule_lf, schedule_slack, schedule_is_critical,
+                created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            "#,
+            task.id,
+            task.project_id,
+            task.parent_task_id,
+            task.name,
+            task.description,
+            task.task_type.to_string(),
+            task.status.to_string(),
+            task.priority.to_string(),
+            task.estimated_duration,
+            task.progress,
+            task.buffer,
+            task.hardness.to_string(),
+            task.schedule.ls,
+            task.schedule.lf,
+            task.schedule.slack,
+            task.schedule.is_critical,
+            task.created_at,
+            task.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert task")?;
+
+        Ok(())
     }
 
     async fn update(&self, task: &Task) -> anyhow::Result<bool> {
