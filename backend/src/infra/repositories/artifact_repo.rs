@@ -98,7 +98,12 @@ impl ArtifactRepository for PgArtifactRepository {
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!("DELETE FROM artifacts WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete artifact")?;
+
+        Ok(result.rows_affected() > 0)
     }
 }
 
