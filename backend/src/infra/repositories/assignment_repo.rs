@@ -59,7 +59,27 @@ impl AssignmentRepository for PgAssignmentRepository {
     }
 
     async fn find_by_user(&self, user_id: Id) -> anyhow::Result<Vec<Assignment>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, task_id, user_id, role
+            FROM assignments WHERE user_id = $1
+            ORDER BY role, task_id
+            "#,
+            user_id
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch user assignments")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Assignment {
+                id: r.id,
+                task_id: r.task_id,
+                user_id: r.user_id,
+                role: Self::parse_role(&r.role),
+            })
+            .collect())
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Assignment>> {
