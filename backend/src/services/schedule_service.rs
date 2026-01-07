@@ -1,14 +1,21 @@
 use async_trait::async_trait;
-use sqlx::PgPool;
 use chrono::{DateTime, Utc, Duration, NaiveDate};
-use std::collections::{HashMap, VecDeque};
-use anyhow::Context;
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::Arc;
 
-use crate::domain::{TaskStatus, TaskType, Priority};
-use crate::domain::enums::*;
 use crate::domain::{Task, Schedule, Dependency, DepType};
-use crate::utils::{AppError, AppResult, Id};
-use sqlx::query;
+use crate::infra::errors::{AppError, AppResult};
+use crate::infra::repositories::ScheduleRepository;
+use crate::utils::Id;
+
+struct TmpSchedule {
+    es: DateTime<Utc>,
+    ef: DateTime<Utc>,
+    ls: DateTime<Utc>,
+    lf: DateTime<Utc>,
+    slack: i64,
+    is_critical: bool,
+}
 
 #[async_trait]
 pub trait ScheduleService: Send + Sync {
@@ -17,334 +24,343 @@ pub trait ScheduleService: Send + Sync {
 }
 
 pub struct ScheduleServiceImpl {
-    pool: PgPool,
+    schedule_repo: Arc<dyn ScheduleRepository>,
 }
 
 impl ScheduleServiceImpl {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(schedule_repo: Arc<dyn ScheduleRepository>) -> Self {
+        Self { schedule_repo }
     }
 
-    async fn get_tasks_with_dependencies(
-        &self,
-        project_id: Id,
-    ) -> AppResult<(Vec<Task>, Vec<Dependency>)> {
-        // Get all tasks for the project
-        let tasks = query!(
-            r#"
-            SELECT
-                id,
-                project_id,
-                parent_task_id,
-                name,
-                description,
-                task_type,
-                status,
-                priority,
-                estimated_duration,
-                planned_start,
-                planned_finish,
-                actual_start,
-                actual_finish,
-                progress,
-                buffer,
-                hardness,
-                deadline,
-                schedule_ls,
-                schedule_lf,
-                schedule_slack,
-                schedule_is_critical,
-                created_at,
-                updated_at
-            FROM tasks
-            WHERE project_id = $1
-            "#,
-            project_id
-        )
-            .fetch_all(&self.pool)
-            .await
-            .context(format!(
-                "Failed to load tasks for project {} in reverse_schedule",
-                project_id
-            ))?;
+    fn topological_sort(&self, tasks: &[Task], successors: &HashMap<Id, Vec<&Dependency>>) -> Vec<Id> {
+        let mut in_degree: HashMap<Id, usize> = HashMap::new();
 
-        let task_ids: Vec<Id> = tasks.iter().map(|t| t.id).collect();
+        for task in tasks {
+            in_degree.insert(task.id, 0);
+        }
 
-        // Get all dependencies for these tasks
-        let deps = if !task_ids.is_empty() {
-            query!(
-                r#"
-                SELECT
-                    id,
-                    from_task_id,
-                    to_task_id,
-                    dep_type,
-                    min_gap
-                FROM dependencies
-                WHERE from_task_id = ANY($1) OR to_task_id = ANY($1)
-                "#,
-                &task_ids[..]
-            )
-                .fetch_all(&self.pool)
-                .await
-                .context(format!(
-                    "Failed to load dependencies for project {} in reverse_schedule",
-                    project_id
-                ))?
-        } else {
-            vec![]
-        };
-
-        let domain_tasks: Vec<Task> = tasks
-            .into_iter()
-            .map(|row| {
-                Task {
-                    id: row.id,
-                    project_id: row.project_id,
-                    parent_task_id: row.parent_task_id,
-                    name: row.name,
-                    description: row.description,
-                    task_type: row.task_type.parse().unwrap_or(TaskType::Task),
-                    status: row.status.parse().unwrap_or(TaskStatus::Planned),
-                    priority: row.priority.parse().unwrap_or(Priority::Normal),
-                    estimated_duration: row.estimated_duration,
-                    planned_start: row.planned_start,
-                    planned_finish: row.planned_finish,
-                    actual_start: row.actual_start,
-                    actual_finish: row.actual_finish,
-                    progress: row.progress.unwrap_or(0),
-                    buffer: row.buffer.unwrap_or(0),
-                    hardness: row.hardness.parse().unwrap_or(Hardness::Soft),
-                    deadline: row.deadline,
-                    schedule: Schedule {
-                        ls: row.schedule_ls,
-                        lf: row.schedule_lf,
-                        slack: row.schedule_slack,
-                        is_critical: row.schedule_is_critical,
-                    },
-                    created_at: row.created_at,
-                    updated_at: row.updated_at,
+        for task in tasks {
+            if let Some(deps) = successors.get(&task.id) {
+                for dep in deps {
+                    *in_degree.entry(dep.to_task_id).or_insert(0) += 1;
                 }
-            })
-            .collect();
+            }
+        }
 
-        let domain_deps: Vec<Dependency> = deps
-            .into_iter()
-            .map(|row| Dependency {
-                id: row.id,
-                from_task_id: row.from_task_id,
-                to_task_id: row.to_task_id,
-                dep_type: row.dep_type.parse().unwrap_or(DepType::FS),
-                min_gap: row.min_gap,
-            })
-            .collect();
+        let mut queue: VecDeque<Id> = VecDeque::new();
+        for task in tasks {
+            if in_degree.get(&task.id) == Some(&0) {
+                queue.push_back(task.id);
+            }
+        }
 
-        Ok((domain_tasks, domain_deps))
+        let mut result: Vec<Id> = Vec::new();
+        while let Some(task_id) = queue.pop_front() {
+            result.push(task_id);
+
+            if let Some(deps) = successors.get(&task_id) {
+                for dep in deps {
+                    if let Some(deg) = in_degree.get_mut(&dep.to_task_id) {
+                        *deg -= 1;
+                        if *deg == 0 {
+                            queue.push_back(dep.to_task_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        result
     }
 
-    fn compute_reverse_schedule(
+    fn compute_full_schedule(
         &self,
         tasks: &mut [Task],
         dependencies: &[Dependency],
+        project_start_date: Option<NaiveDate>,
         project_due_date: NaiveDate,
     ) -> AppResult<()> {
         if tasks.is_empty() {
             return Ok(());
         }
 
-        // Build dependency graph
         let mut successors: HashMap<Id, Vec<&Dependency>> = HashMap::new();
         let mut predecessors: HashMap<Id, Vec<&Dependency>> = HashMap::new();
 
         for dep in dependencies {
-            successors.entry(dep.from_task_id).or_insert_with(Vec::new).push(dep);
-            predecessors.entry(dep.to_task_id).or_insert_with(Vec::new).push(dep);
+            successors.entry(dep.from_task_id).or_default().push(dep);
+            predecessors.entry(dep.to_task_id).or_default().push(dep);
         }
 
-        // Create task index map for quick lookup
-        let mut task_indices: HashMap<Id, usize> = HashMap::new();
+        let mut task_by_id: HashMap<Id, usize> = HashMap::new();
         for (idx, task) in tasks.iter().enumerate() {
-            task_indices.insert(task.id, idx);
+            task_by_id.insert(task.id, idx);
         }
 
-        // Convert project due_date to DateTime<Utc> at end of day
+        let project_start = project_start_date
+            .unwrap_or(project_due_date)
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
+
         let deadline = project_due_date
             .and_hms_opt(23, 59, 59)
             .unwrap()
             .and_utc();
 
-        // Initialize LF (Latest Finish) for all tasks
-        // Start with tasks that have no successors (leaf nodes)
-        let mut queue = VecDeque::new();
-        for task in tasks.iter() {
-            if !successors.contains_key(&task.id) {
-                queue.push_back(task.id);
-            }
-        }
+        let mut tmp: HashMap<Id, TmpSchedule> = HashMap::new();
+        let topo_order = self.topological_sort(tasks, &successors);
 
-        // Set LF for leaf nodes to project deadline
-        while let Some(task_id) = queue.pop_front() {
-            if let Some(&task_idx) = task_indices.get(&task_id) {
-                let task = &mut tasks[task_idx];
+        for task_id in &topo_order {
+            if let Some(&task_idx) = task_by_id.get(task_id) {
+                let task = &tasks[task_idx];
+                let dur = Duration::seconds(task.estimated_duration.unwrap_or(0));
 
-                if task.schedule.lf.is_none() {
-                    task.schedule.lf = Some(deadline);
+                let es = if let Some(pred_deps) = predecessors.get(task_id) {
+                    let mut max_es = project_start;
 
-                    // Calculate LS (Latest Start) based on estimated duration
-                    if let Some(duration) = task.estimated_duration {
-                        let duration_delta = Duration::seconds(duration);
-                        task.schedule.ls = task.schedule.lf.map(|lf| lf - duration_delta);
-                    } else {
-                        task.schedule.ls = task.schedule.lf;
-                    }
-                }
+                    for dep in pred_deps {
+                        if let Some(pred_sched) = tmp.get(&dep.from_task_id) {
+                            let gap = Duration::seconds(dep.min_gap);
 
-                // Process predecessors - collect updates first to avoid multiple borrows
-                let mut updates: Vec<(Id, DateTime<Utc>)> = Vec::new();
-
-                if let Some(preds) = predecessors.get(&task_id) {
-                    let task_ls = task.schedule.ls;
-                    let task_lf = task.schedule.lf;
-
-                    for dep in preds {
-                        if let Some(&pred_idx) = task_indices.get(&dep.from_task_id) {
-                            let pred_task = &tasks[pred_idx];
-
-                            // Calculate LF for predecessor based on dependency type
-                            let pred_lf = match dep.dep_type {
-                                DepType::FS => {
-                                    // Finish-to-Start: predecessor must finish before successor starts
-                                    task_ls.map(|ls| ls - Duration::seconds(dep.min_gap))
-                                }
-                                DepType::FF => {
-                                    // Finish-to-Finish: predecessor must finish before successor finishes
-                                    task_lf.map(|lf| lf - Duration::seconds(dep.min_gap))
-                                }
-                                DepType::SS => {
-                                    // Start-to-Start: predecessor must start before successor starts
-                                    let pred_duration = pred_task.estimated_duration.unwrap_or(0);
-                                    task_ls.map(|ls| {
-                                        ls - Duration::seconds(dep.min_gap + pred_duration)
-                                    })
-                                }
-                                DepType::SF => {
-                                    // Start-to-Finish: predecessor must start before successor finishes
-                                    task_lf.map(|lf| lf - Duration::seconds(dep.min_gap))
-                                }
+                            let candidate_es = match dep.dep_type {
+                                DepType::FS => pred_sched.ef + gap,
+                                DepType::FF => pred_sched.ef + gap - dur,
+                                DepType::SS => pred_sched.es + gap,
+                                DepType::SF => pred_sched.es + gap - dur,
                             };
 
-                            if let Some(new_lf) = pred_lf {
-                                let should_update = pred_task
-                                    .schedule
-                                    .lf
-                                    .map(|current_lf| new_lf < current_lf)
-                                    .unwrap_or(true);
-
-                                if should_update {
-                                    updates.push((dep.from_task_id, new_lf));
-                                }
+                            if candidate_es > max_es {
+                                max_es = candidate_es;
                             }
                         }
                     }
-                }
+                    max_es
+                } else {
+                    project_start
+                };
 
-                // Apply updates
-                for (pred_id, new_lf) in updates {
-                    if let Some(&pred_idx) = task_indices.get(&pred_id) {
-                        let pred_task = &mut tasks[pred_idx];
-                        pred_task.schedule.lf = Some(new_lf);
-                        if let Some(duration) = pred_task.estimated_duration {
-                            pred_task.schedule.ls = Some(new_lf - Duration::seconds(duration));
-                        } else {
-                            pred_task.schedule.ls = Some(new_lf);
+                let ef = es + dur;
+
+                tmp.insert(*task_id, TmpSchedule {
+                    es,
+                    ef,
+                    ls: deadline,
+                    lf: deadline,
+                    slack: 0,
+                    is_critical: false,
+                });
+            }
+        }
+
+        let reverse_topo: Vec<Id> = topo_order.iter().rev().cloned().collect();
+
+        for task_id in &reverse_topo {
+            if let Some(&task_idx) = task_by_id.get(task_id) {
+                let task = &tasks[task_idx];
+                let dur = Duration::seconds(task.estimated_duration.unwrap_or(0));
+
+                let lf = if let Some(succ_deps) = successors.get(task_id) {
+                    let mut min_lf = deadline;
+
+                    for dep in succ_deps {
+                        if let Some(succ_sched) = tmp.get(&dep.to_task_id) {
+                            let gap = Duration::seconds(dep.min_gap);
+
+                            let candidate_lf = match dep.dep_type {
+                                DepType::FS => succ_sched.ls - gap,
+                                DepType::FF => succ_sched.lf - gap,
+                                DepType::SS => succ_sched.ls - gap + dur,
+                                DepType::SF => succ_sched.lf - gap + dur,
+                            };
+
+                            if candidate_lf < min_lf {
+                                min_lf = candidate_lf;
+                            }
                         }
-                        queue.push_back(pred_id);
                     }
+                    min_lf
+                } else {
+                    deadline
+                };
+
+                let ls = lf - dur;
+
+                if let Some(sched) = tmp.get_mut(task_id) {
+                    sched.ls = ls;
+                    sched.lf = lf;
                 }
             }
         }
 
-        // Calculate slack for all tasks
-        for task in tasks.iter_mut() {
-            if let (Some(ls), Some(lf)) = (task.schedule.ls, task.schedule.lf) {
-                if let Some(duration) = task.estimated_duration {
-                    let es = ls; // Earliest Start = Latest Start (in reverse scheduling)
-                    let ef = es + Duration::seconds(duration); // Earliest Finish
-                    let slack_seconds = (lf - ef).num_seconds();
-                    task.schedule.slack = Some(slack_seconds);
-                    task.schedule.is_critical = slack_seconds == 0;
-                }
+        for task_id in &topo_order {
+            if let Some(sched) = tmp.get_mut(task_id) {
+                let slack_seconds = (sched.lf - sched.ef).num_seconds();
+                sched.slack = slack_seconds.max(0);
+                sched.is_critical = slack_seconds <= 0;
             }
         }
+
+        for task in tasks.iter_mut() {
+            if let Some(sched) = tmp.get(&task.id) {
+                task.schedule.ls = Some(sched.ls);
+                task.schedule.lf = Some(sched.lf);
+                task.schedule.slack = Some(sched.slack);
+                task.schedule.is_critical = sched.is_critical;
+            }
+        }
+
+        self.aggregate_hierarchy(tasks);
 
         Ok(())
     }
 
-    async fn save_schedules(&self, tasks: &[Task]) -> AppResult<()> {
-        for task in tasks {
-            query!(
-                r#"
-                UPDATE tasks
-                SET
-                    schedule_ls = $2,
-                    schedule_lf = $3,
-                    schedule_slack = $4,
-                    schedule_is_critical = $5,
-                    updated_at = $6
-                WHERE id = $1
-                "#,
-                task.id,
-                task.schedule.ls,
-                task.schedule.lf,
-                task.schedule.slack,
-                task.schedule.is_critical,
-                task.updated_at
-            )
-                .execute(&self.pool)
-                .await
-                .context(format!(
-                    "Failed to update schedule for task {}",
-                    task.id
-                ))?;
+    fn aggregate_hierarchy(&self, tasks: &mut [Task]) {
+        if tasks.is_empty() {
+            return;
         }
-        Ok(())
+
+        let mut by_id: HashMap<Id, usize> = HashMap::new();
+        for (idx, task) in tasks.iter().enumerate() {
+            by_id.insert(task.id, idx);
+        }
+
+        let mut children: HashMap<Id, Vec<Id>> = HashMap::new();
+        let mut roots: Vec<Id> = Vec::new();
+
+        for task in tasks.iter() {
+            if let Some(parent_id) = task.parent_task_id {
+                if by_id.contains_key(&parent_id) {
+                    children.entry(parent_id).or_default().push(task.id);
+                } else {
+                    roots.push(task.id);
+                }
+            } else {
+                roots.push(task.id);
+            }
+        }
+
+        for root_id in roots {
+            let mut stack: Vec<(Id, usize)> = Vec::new();
+            let mut visited: HashSet<Id> = HashSet::new();
+
+            stack.push((root_id, 0));
+
+            while let Some((task_id, children_processed)) = stack.last_mut() {
+                let current_id = *task_id;
+
+                if visited.contains(&current_id) {
+                    stack.pop();
+                    continue;
+                }
+
+                let child_ids = children.get(&current_id).map(|v| v.as_slice()).unwrap_or(&[]);
+
+                if *children_processed < child_ids.len() {
+                    let child_id = child_ids[*children_processed];
+                    *children_processed += 1;
+
+                    if by_id.contains_key(&child_id) {
+                        stack.push((child_id, 0));
+                    }
+                } else {
+                    stack.pop();
+                    visited.insert(current_id);
+
+                    if let Some(&task_idx) = by_id.get(&current_id) {
+                        let child_ids = children.get(&current_id).map(|v| v.as_slice()).unwrap_or(&[]);
+
+                        if !child_ids.is_empty() {
+                            let mut child_ls_values: Vec<DateTime<Utc>> = Vec::new();
+                            let mut child_lf_values: Vec<DateTime<Utc>> = Vec::new();
+                            let mut child_slack_values: Vec<i64> = Vec::new();
+                            let mut any_child_critical = false;
+
+                            for &child_id in child_ids.iter() {
+                                if let Some(&child_idx) = by_id.get(&child_id) {
+                                    let child = &tasks[child_idx];
+                                    if let Some(ls) = child.schedule.ls {
+                                        child_ls_values.push(ls);
+                                    }
+                                    if let Some(lf) = child.schedule.lf {
+                                        child_lf_values.push(lf);
+                                    }
+                                    if let Some(slack) = child.schedule.slack {
+                                        child_slack_values.push(slack);
+                                    }
+                                    if child.schedule.is_critical {
+                                        any_child_critical = true;
+                                    }
+                                }
+                            }
+
+                            let task = &mut tasks[task_idx];
+
+                            if let Some(&min_child_ls) = child_ls_values.iter().min() {
+                                task.schedule.ls = Some(
+                                    task.schedule.ls
+                                        .map(|parent_ls| parent_ls.min(min_child_ls))
+                                        .unwrap_or(min_child_ls)
+                                );
+                            }
+
+                            if let Some(&max_child_lf) = child_lf_values.iter().max() {
+                                task.schedule.lf = Some(
+                                    task.schedule.lf
+                                        .map(|parent_lf| parent_lf.max(max_child_lf))
+                                        .unwrap_or(max_child_lf)
+                                );
+                            }
+
+                            if !child_slack_values.is_empty() {
+                                let min_child_slack = *child_slack_values.iter().min().unwrap();
+                                task.schedule.slack = Some(min_child_slack);
+                                task.schedule.is_critical = min_child_slack == 0 || any_child_critical;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 #[async_trait]
 impl ScheduleService for ScheduleServiceImpl {
     async fn reverse_schedule(&self, project_id: Id) -> AppResult<Vec<Task>> {
-        let project = query!(
-            "SELECT due_date FROM projects WHERE id = $1",
-            project_id
-        )
-            .fetch_optional(&self.pool)
+        let (start_date, due_date) = self.schedule_repo
+            .get_project_dates(project_id)
             .await
-            .context(format!(
-                "Failed to load project {} for reverse_schedule",
-                project_id
-            ))?
-            .ok_or_else(|| AppError::NotFound(format!("Project with id {} not found", project_id)))?;
+            .map_err(AppError::Internal)?
+            .ok_or_else(|| AppError::NotFound(format!("Project {} not found", project_id)))?;
 
-        let (mut tasks, dependencies) = self
-            .get_tasks_with_dependencies(project_id)
-            .await?;
+        let mut tasks = self.schedule_repo
+            .get_tasks_by_project(project_id)
+            .await
+            .map_err(AppError::Internal)?;
 
-        self.compute_reverse_schedule(&mut tasks, &dependencies, project.due_date)?;
+        let task_ids: Vec<Id> = tasks.iter().map(|t| t.id).collect();
+
+        let dependencies = self.schedule_repo
+            .get_dependencies_by_task_ids(&task_ids)
+            .await
+            .map_err(AppError::Internal)?;
+
+        self.compute_full_schedule(&mut tasks, &dependencies, start_date, due_date)?;
 
         let now = Utc::now();
         for task in &mut tasks {
             task.updated_at = now;
+            self.schedule_repo
+                .update_task_schedule(task)
+                .await
+                .map_err(AppError::Internal)?;
         }
-
-        self.save_schedules(&tasks).await?;
 
         Ok(tasks)
     }
 
     async fn compute_schedule(&self, tasks: &[Task]) -> AppResult<Vec<Schedule>> {
-        // Пока просто возвращаем текущие schedule поля задач
-        // TODO: Реализовать прямой расчет расписания
         Ok(tasks.iter().map(|t| t.schedule.clone()).collect())
     }
 }
