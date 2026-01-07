@@ -145,7 +145,15 @@ impl DependencyRepository for PgDependencyRepository {
     }
 
     async fn get_project_task_ids(&self, project_id: Id) -> anyhow::Result<Vec<Id>> {
-        todo!()
+        let rows = sqlx::query!(
+            "SELECT id FROM tasks WHERE project_id = $1",
+            project_id
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch tasks")?;
+
+        Ok(rows.into_iter().map(|r| r.id).collect())
     }
 }
 
