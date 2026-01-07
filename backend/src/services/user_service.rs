@@ -1,119 +1,128 @@
 use async_trait::async_trait;
-use sqlx::PgPool;
+use std::sync::Arc;
+use std::time::Duration;
 
-use crate::domain::User;
-use crate::utils::{hash_password, AppError, AppResult};
-use crate::utils::auth::{validate_password, verify_password};
-use crate::utils::{generate_token};
-use chrono::Utc;
+use crate::domain::{User, GlobalRole};
+use crate::infra::errors::{AppError, AppResult};
+use crate::infra::repositories::UserRepository;
+use crate::auth::{hash_password, validate_password, verify_password};
+use crate::infra::security::generate_token;
+use crate::utils::{Id, generate_id};
+
 #[async_trait]
 pub trait UserService: Send + Sync {
     async fn authenticate(&self, email: &str, password: &str) -> AppResult<User>;
     async fn register(&self, email: String, name: String, password: String) -> AppResult<(User, String)>;
-
+    async fn get_by_id(&self, user_id: Id) -> AppResult<User>;
+    async fn get_all(&self) -> AppResult<Vec<User>>;
+    async fn promote_to_teacher(&self, user_id: Id) -> AppResult<User>;
+    async fn update_email_notifications(&self, user_id: Id, enabled: bool) -> AppResult<User>;
 }
 
 pub struct UserServiceImpl {
-    pool: PgPool,
+    user_repo: Arc<dyn UserRepository>,
 }
 
 impl UserServiceImpl {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(user_repo: Arc<dyn UserRepository>) -> Self {
+        Self { user_repo }
     }
 }
 
 #[async_trait]
 impl UserService for UserServiceImpl {
     async fn authenticate(&self, email: &str, password: &str) -> AppResult<User> {
-        let row = sqlx::query!(
-            r#"
-            SELECT
-                id,
-                email,
-                name,
-                password_hash,
-                created_at
-            FROM users
-            WHERE email = $1
-            "#,
-            email
-        )
-            .fetch_optional(&self.pool)
+        let result = self.user_repo
+            .find_by_email(email)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {e}")))?;
+            .map_err(AppError::Internal)?;
 
-        let row = row.ok_or_else(|| {
-            AppError::Validation(format!("Invalid credentials for email {}", email))
+        let (user, password_hash) = result.ok_or_else(|| {
+            AppError::Validation("Invalid email or password".into())
         })?;
 
-        let hash = row.password_hash;
-
-        if hash.is_empty() {
+        if password_hash.is_empty() {
             return Err(AppError::Internal(anyhow::anyhow!("User has no password hash set")));
         }
 
-        if !verify_password(&hash, &password)? {
+        if !verify_password(&password_hash, password)? {
             return Err(AppError::Validation("Invalid email or password".into()));
         }
 
-        Ok(User {
-            id: row.id,
-            email: row.email,
-            name: row.name,
-            created_at: row.created_at,
-        })
+        Ok(user)
     }
 
     async fn register(&self, email: String, name: String, password: String) -> AppResult<(User, String)> {
         validate_password(&password)?;
 
-        let exists = sqlx::query_scalar!(
-            r#"
-            SELECT EXISTS(
-                SELECT 1 FROM users WHERE email = $1
-            ) AS "exists!"
-            "#,
-            email
-        )
-            .fetch_one(&self.pool)
+        let existing = self.user_repo
+            .find_by_email(&email)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {e}")))?;
+            .map_err(AppError::Internal)?;
 
-        if exists {
+        if existing.is_some() {
             return Err(AppError::Validation(format!("User with email {} already exists", email)));
         }
 
         let password_hash = hash_password(&password)?;
-
-        let id = crate::utils::generate_id();
-        let now = Utc::now();
+        let id = generate_id();
 
         let user = User {
             id,
-            email: email.clone(),
-            name,
-            created_at: now,
+            email,
+            name: name.clone(),
+            global_role: GlobalRole::Student,
+            email_notifications_enabled: true,
         };
 
-        sqlx::query!(
-            r#"
-            INSERT INTO users (id, email, name, password_hash, created_at)
-            VALUES ($1, $2, $3, $4, $5)
-            "#,
-            user.id,
-            user.email,
-            user.name,
-            password_hash,
-            user.created_at
-        )
-            .execute(&self.pool)
+        self.user_repo
+            .insert(&user, &password_hash)
             .await
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Database error: {e}")))?;
+            .map_err(AppError::Internal)?;
 
-        // TTL 24 hours
-        let token = generate_token(user.id, std::time::Duration::from_secs(86400))?;
+        let token = generate_token(user.id, &user.global_role.to_string(), name, Duration::from_secs(86400))?;
 
         Ok((user, token))
+    }
+
+    async fn get_by_id(&self, user_id: Id) -> AppResult<User> {
+        self.user_repo
+            .find_by_id(user_id)
+            .await
+            .map_err(AppError::Internal)?
+            .ok_or_else(|| AppError::NotFound(format!("User {} not found", user_id)))
+    }
+
+    async fn get_all(&self) -> AppResult<Vec<User>> {
+        self.user_repo
+            .find_all()
+            .await
+            .map_err(AppError::Internal)
+    }
+
+    async fn promote_to_teacher(&self, user_id: Id) -> AppResult<User> {
+        let updated = self.user_repo
+            .update_global_role(user_id, GlobalRole::Teacher)
+            .await
+            .map_err(AppError::Internal)?;
+
+        if !updated {
+            return Err(AppError::NotFound(format!("User {} not found", user_id)));
+        }
+
+        self.get_by_id(user_id).await
+    }
+
+    async fn update_email_notifications(&self, user_id: Id, enabled: bool) -> AppResult<User> {
+        let updated = self.user_repo
+            .update_email_notifications(user_id, enabled)
+            .await
+            .map_err(AppError::Internal)?;
+
+        if !updated {
+            return Err(AppError::NotFound(format!("User {} not found", user_id)));
+        }
+
+        self.get_by_id(user_id).await
     }
 }
