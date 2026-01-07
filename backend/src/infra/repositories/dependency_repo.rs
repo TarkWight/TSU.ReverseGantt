@@ -105,7 +105,22 @@ impl DependencyRepository for PgDependencyRepository {
     }
 
     async fn insert(&self, dependency: &Dependency) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO dependencies (id, from_task_id, to_task_id, dep_type, min_gap)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            dependency.id,
+            dependency.from_task_id,
+            dependency.to_task_id,
+            dependency.dep_type.to_string(),
+            dependency.min_gap
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert dependency")?;
+
+        Ok(())
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
