@@ -42,4 +42,28 @@ impl ProjectRepository for ProjectRepository {
             })
             .collect())
     }
+
+    async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Project>> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, name, description, start_date, due_date, created_at, updated_at
+            FROM projects
+            WHERE id = $1
+            "#,
+            id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch project")?;
+
+        Ok(row.map(|r| Project {
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            start_date: r.start_date,
+            due_date: r.due_date,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }))
+    }
 }
