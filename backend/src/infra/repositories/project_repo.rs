@@ -87,4 +87,25 @@ impl ProjectRepository for ProjectRepository {
 
         Ok(())
     }
+
+    async fn update(&self, project: &Project) -> anyhow::Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE projects
+            SET name = $2, description = $3, start_date = $4, due_date = $5, updated_at = $6
+            WHERE id = $1
+            "#,
+            project.id,
+            project.name,
+            project.description,
+            project.start_date,
+            project.due_date,
+            project.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update project")?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
