@@ -162,7 +162,12 @@ impl AssignmentRepository for PgAssignmentRepository {
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!("DELETE FROM assignments WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete assignment")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn delete_by_task_and_user(&self, task_id: Id, user_id: Id) -> anyhow::Result<bool> {
