@@ -144,7 +144,21 @@ impl AssignmentRepository for PgAssignmentRepository {
     }
 
     async fn insert(&self, assignment: &Assignment) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO assignments (id, task_id, user_id, role)
+            VALUES ($1, $2, $3, $4)
+            "#,
+            assignment.id,
+            assignment.task_id,
+            assignment.user_id,
+            assignment.role.to_string()
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert assignment")?;
+
+        Ok(())
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
