@@ -72,7 +72,22 @@ impl ReviewRepository for PgReviewRepository {
     }
 
     async fn update(&self, review: &Review) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            r#"
+            UPDATE reviews
+            SET decision = $2, comment = $3, updated_at = $4
+            WHERE id = $1
+            "#,
+            review.id,
+            review.decision.as_ref().map(|d| d.to_string()),
+            review.comment,
+            review.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update review")?;
+
+        Ok(result.rows_affected() > 0)
     }
 }
 
