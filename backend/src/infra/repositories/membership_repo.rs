@@ -193,7 +193,12 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!("DELETE FROM memberships WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete membership")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn clear_leader(&self, project_id: Id) -> anyhow::Result<()> {
