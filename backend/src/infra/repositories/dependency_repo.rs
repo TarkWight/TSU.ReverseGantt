@@ -33,7 +33,28 @@ impl PgDependencyRepository {
 #[async_trait]
 impl DependencyRepository for PgDependencyRepository {
     async fn find_by_task(&self, task_id: Id) -> anyhow::Result<Vec<Dependency>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, from_task_id, to_task_id, dep_type, min_gap
+            FROM dependencies
+            WHERE from_task_id = $1 OR to_task_id = $1
+            "#,
+            task_id
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch dependencies")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Dependency {
+                id: r.id,
+                from_task_id: r.from_task_id,
+                to_task_id: r.to_task_id,
+                dep_type: Self::parse_dep_type(&r.dep_type),
+                min_gap: r.min_gap,
+            })
+            .collect())
     }
 
     async fn find_by_project(&self, project_id: Id) -> anyhow::Result<Vec<Dependency>> {
