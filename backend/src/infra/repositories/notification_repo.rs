@@ -31,7 +31,38 @@ impl PgNotificationRepository {
 #[async_trait]
 impl NotificationRepository for PgNotificationRepository {
     async fn find_by_user(&self, user_id: Id, limit: i64) -> anyhow::Result<Vec<Notification>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, user_id, notification_type, title, message, task_id, project_id, is_read, created_at
+            FROM notifications
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            "#,
+            user_id,
+            limit
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch notifications")?;
+
+        Ok(rows
+            .into_iter()
+            .filter_map(|r| {
+                let notification_type = Self::parse_notification_type(&r.notification_type)?;
+                Some(Notification {
+                    id: r.id,
+                    user_id: r.user_id,
+                    notification_type,
+                    title: r.title,
+                    message: r.message,
+                    task_id: r.task_id,
+                    project_id: r.project_id,
+                    is_read: r.is_read,
+                    created_at: r.created_at,
+                })
+            })
+            .collect())
     }
 
     async fn count_unread(&self, user_id: Id) -> anyhow::Result<i64> {
