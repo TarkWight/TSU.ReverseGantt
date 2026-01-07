@@ -54,7 +54,26 @@ impl ArtifactRepository for PgArtifactRepository {
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Artifact>> {
-        todo!()
+        let row = sqlx::query!(
+            r#"
+            SELECT id, task_id, name, uri, kind, created_at, updated_at
+            FROM artifacts WHERE id = $1
+            "#,
+            id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch artifact")?;
+
+        Ok(row.map(|r| Artifact {
+            id: r.id,
+            task_id: r.task_id,
+            name: r.name,
+            uri: r.uri,
+            kind: r.kind,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }))
     }
 
     async fn insert(&self, artifact: &Artifact) -> anyhow::Result<()> {
