@@ -171,7 +171,16 @@ impl AssignmentRepository for PgAssignmentRepository {
     }
 
     async fn delete_by_task_and_user(&self, task_id: Id, user_id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "DELETE FROM assignments WHERE task_id = $1 AND user_id = $2",
+            task_id,
+            user_id
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete assignment")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn exists(&self, task_id: Id, user_id: Id, role: AssignRole) -> anyhow::Result<bool> {
