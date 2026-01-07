@@ -51,7 +51,24 @@ impl ReviewRepository for PgReviewRepository {
     }
 
     async fn insert(&self, review: &Review) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO reviews (id, task_id, reviewer_id, decision, comment, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            review.id,
+            review.task_id,
+            review.reviewer_id,
+            review.decision.as_ref().map(|d| d.to_string()),
+            review.comment,
+            review.created_at,
+            review.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert review")?;
+
+        Ok(())
     }
 
     async fn update(&self, review: &Review) -> anyhow::Result<bool> {
