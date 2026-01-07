@@ -202,6 +202,14 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn clear_leader(&self, project_id: Id) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            "UPDATE memberships SET is_leader = false WHERE project_id = $1",
+            project_id
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to clear leader")?;
+
+        Ok(())
     }
 }
