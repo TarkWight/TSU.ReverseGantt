@@ -34,7 +34,24 @@ impl PgUserRepository {
 #[async_trait]
 impl UserRepository for PgUserRepository {
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<User>> {
-        todo!()
+        let row = sqlx::query!(
+            r#"
+            SELECT id, email, name, global_role, email_notifications_enabled
+            FROM users WHERE id = $1
+            "#,
+            id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch user")?;
+
+        Ok(row.map(|r| User {
+            id: r.id,
+            email: r.email,
+            name: r.name,
+            global_role: Self::parse_global_role(&r.global_role),
+            email_notifications_enabled: r.email_notifications_enabled,
+        }))
     }
 
     async fn find_by_email(&self, email: &str) -> anyhow::Result<Option<(User, String)>> {
