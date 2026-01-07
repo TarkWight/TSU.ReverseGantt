@@ -124,7 +124,12 @@ impl DependencyRepository for PgDependencyRepository {
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!("DELETE FROM dependencies WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete dependency")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn get_task_project_id(&self, task_id: Id) -> anyhow::Result<Option<Id>> {
