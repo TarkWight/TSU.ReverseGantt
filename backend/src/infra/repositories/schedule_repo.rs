@@ -86,7 +86,32 @@ impl ScheduleRepository for PgScheduleRepository {
 
 
     async fn get_dependencies_by_task_ids(&self, task_ids: &[Id]) -> anyhow::Result<Vec<Dependency>> {
-        todo!()
+        if task_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, from_task_id, to_task_id, dep_type, min_gap
+            FROM dependencies
+            WHERE from_task_id = ANY($1) OR to_task_id = ANY($1)
+            "#,
+            task_ids
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch dependencies")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Dependency {
+                id: r.id,
+                from_task_id: r.from_task_id,
+                to_task_id: r.to_task_id,
+                dep_type: r.dep_type.parse().unwrap_or(DepType::FS),
+                min_gap: r.min_gap,
+            })
+            .collect())
     }
 
     async fn update_task_schedule(&self, task: &Task) -> anyhow::Result<()> {
