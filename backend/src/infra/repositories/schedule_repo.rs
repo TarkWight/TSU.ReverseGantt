@@ -27,8 +27,17 @@ impl PgScheduleRepository {
 #[async_trait]
 impl ScheduleRepository for PgScheduleRepository {
     async fn get_project_dates(&self, project_id: Id) -> anyhow::Result<Option<(Option<NaiveDate>, NaiveDate)>> {
-        todo!()
+        let row = sqlx::query!(
+            "SELECT start_date, due_date FROM projects WHERE id = $1",
+            project_id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch project")?;
+
+        Ok(row.map(|r| (r.start_date, r.due_date)))
     }
+
 
     async fn get_tasks_by_project(&self, project_id: Id) -> anyhow::Result<Vec<Task>> {
         todo!()
