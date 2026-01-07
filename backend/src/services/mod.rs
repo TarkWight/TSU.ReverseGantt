@@ -5,6 +5,7 @@ pub mod schedule_service;
 pub mod review_service;
 pub mod user_service;
 pub mod membership_service;
+pub mod assignment_service;
 
 pub use user_service::{UserService, UserServiceImpl};
 pub use review_service::{ReviewService, ReviewServiceImpl};
