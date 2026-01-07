@@ -4,6 +4,7 @@ mod domain;
 mod utils;
 mod services;
 mod api;
+mod infra;
 
 use std::net::SocketAddr;
 
