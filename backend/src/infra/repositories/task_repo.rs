@@ -73,7 +73,49 @@ impl PgTaskRepository {
 #[async_trait]
 impl TaskRepository for PgTaskRepository {
     async fn find_by_project(&self, project_id: Id) -> anyhow::Result<Vec<Task>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                id, project_id, parent_task_id, name, description,
+                task_type, status, priority, estimated_duration,
+                progress, buffer, hardness,
+                schedule_ls, schedule_lf, schedule_slack, schedule_is_critical,
+                created_at, updated_at
+            FROM tasks
+            WHERE project_id = $1
+            ORDER BY created_at
+            "#,
+            project_id
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch tasks")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                Self::map_row_to_task(
+                    r.id,
+                    r.project_id,
+                    r.parent_task_id,
+                    r.name,
+                    r.description,
+                    r.task_type,
+                    r.status,
+                    r.priority,
+                    r.estimated_duration,
+                    r.progress,
+                    r.buffer,
+                    r.hardness,
+                    r.schedule_ls,
+                    r.schedule_lf,
+                    r.schedule_slack,
+                    r.schedule_is_critical,
+                    r.created_at,
+                    r.updated_at,
+                )
+            })
+            .collect())
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Task>> {
