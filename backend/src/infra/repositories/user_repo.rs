@@ -55,7 +55,29 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn find_by_email(&self, email: &str) -> anyhow::Result<Option<(User, String)>> {
-        todo!()
+        let row = sqlx::query!(
+            r#"
+            SELECT id, email, name, password_hash, global_role, email_notifications_enabled
+            FROM users WHERE email = $1
+            "#,
+            email
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch user by email")?;
+
+        Ok(row.map(|r| {
+            (
+                User {
+                    id: r.id,
+                    email: r.email,
+                    name: r.name,
+                    global_role: Self::parse_global_role(&r.global_role),
+                    email_notifications_enabled: r.email_notifications_enabled,
+                },
+                r.password_hash,
+            )
+        }))
     }
 
     async fn find_all(&self) -> anyhow::Result<Vec<User>> {
