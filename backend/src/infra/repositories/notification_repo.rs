@@ -66,7 +66,18 @@ impl NotificationRepository for PgNotificationRepository {
     }
 
     async fn count_unread(&self, user_id: Id) -> anyhow::Result<i64> {
-        todo!()
+        let count = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*) AS "count!" FROM notifications
+            WHERE user_id = $1 AND is_read = false
+            "#,
+            user_id
+        )
+            .fetch_one(&self.pool)
+            .await
+            .context("Failed to count unread")?;
+
+        Ok(count)
     }
 
     async fn insert(&self, notification: &Notification) -> anyhow::Result<()> {
