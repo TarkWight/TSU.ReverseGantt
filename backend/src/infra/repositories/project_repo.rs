@@ -1,3 +1,10 @@
+use async_trait::async_trait;
+use sqlx::PgPool;
+use anyhow::Context;
+
+use crate::domain::Project;
+use crate::utils::Id;
+
 #[async_trait]
 pub trait ProjectRepository: Send + Sync {
     async fn find_all(&self) -> anyhow::Result<Vec<Project>>;
@@ -7,16 +14,18 @@ pub trait ProjectRepository: Send + Sync {
     async fn delete(&self, id: Id) -> anyhow::Result<bool>;
 }
 
-pub struct ProjectRepository {
+pub struct PgProjectRepository {
     pool: PgPool,
 }
 
-impl ProjectRepository {
-    pub fn new(pool: PgPool) -> Self { Self { pool } }
+impl PgProjectRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
 }
 
 #[async_trait]
-impl ProjectRepository for ProjectRepository {
+impl ProjectRepository for PgProjectRepository {
     async fn find_all(&self) -> anyhow::Result<Vec<Project>> {
         let rows = sqlx::query!(
             r#"
@@ -118,3 +127,4 @@ impl ProjectRepository for ProjectRepository {
         Ok(result.rows_affected() > 0)
     }
 }
+
