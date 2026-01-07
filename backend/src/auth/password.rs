@@ -2,13 +2,13 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use password_hash::SaltString;
 use rand_core::OsRng;
 
-use crate::utils::AppError;
+use crate::infra::errors::{AppError, AppResult};
 
 fn password_pepper() -> String {
-    std::env::var("PASSWORD_PEPPER").unwrap_or_else(|_| "".to_string())
+    std::env::var("PASSWORD_PEPPER").unwrap_or_default()
 }
 
-pub fn hash_password(plain: &str) -> Result<String, AppError> {
+pub fn hash_password(plain: &str) -> AppResult<String> {
     let pepper = password_pepper();
     let to_hash = format!("{plain}{pepper}");
 
@@ -23,7 +23,7 @@ pub fn hash_password(plain: &str) -> Result<String, AppError> {
     Ok(hash)
 }
 
-pub fn verify_password(hash: &str, plain: &str) -> Result<bool, AppError> {
+pub fn verify_password(hash: &str, plain: &str) -> AppResult<bool> {
     let pepper = password_pepper();
     let to_verify = format!("{plain}{pepper}");
 
@@ -37,7 +37,7 @@ pub fn verify_password(hash: &str, plain: &str) -> Result<bool, AppError> {
         .is_ok())
 }
 
-pub fn validate_password(password: &str) -> Result<(), AppError> {
+pub fn validate_password(password: &str) -> AppResult<()> {
     if password.len() < 8 {
         return Err(AppError::Validation(
             "Password must be at least 8 characters long".into(),
@@ -47,9 +47,7 @@ pub fn validate_password(password: &str) -> Result<(), AppError> {
     let has_lower = password.chars().any(|c| c.is_ascii_lowercase());
     let has_upper = password.chars().any(|c| c.is_ascii_uppercase());
     let has_digit = password.chars().any(|c| c.is_ascii_digit());
-    let has_special = password.chars().any(|c| {
-        !c.is_ascii_alphanumeric() && !c.is_whitespace()
-    });
+    let has_special = password.chars().any(|c| !c.is_ascii_alphanumeric() && !c.is_whitespace());
 
     if !has_lower {
         return Err(AppError::Validation(
@@ -74,3 +72,4 @@ pub fn validate_password(password: &str) -> Result<(), AppError> {
 
     Ok(())
 }
+

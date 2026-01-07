@@ -22,6 +22,12 @@ pub enum AppError {
 
     #[error("Invalid ID format: {0}")]
     InvalidId(#[from] uuid::Error),
+
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
 }
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -36,6 +42,8 @@ impl IntoResponse for AppError {
                 StatusCode::BAD_REQUEST,
                 format!("Invalid ID format: {}", err),
             ),
+            AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
+            AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
             AppError::Internal(err) => {
                 tracing::error!("Internal error: {}", err);
                 (
@@ -52,3 +60,4 @@ impl IntoResponse for AppError {
         (status, body).into_response()
     }
 }
+
