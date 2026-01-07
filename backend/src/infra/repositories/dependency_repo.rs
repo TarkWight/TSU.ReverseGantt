@@ -84,7 +84,24 @@ impl DependencyRepository for PgDependencyRepository {
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Dependency>> {
-        todo!()
+        let row = sqlx::query!(
+            r#"
+            SELECT id, from_task_id, to_task_id, dep_type, min_gap
+            FROM dependencies WHERE id = $1
+            "#,
+            id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch dependency")?;
+
+        Ok(row.map(|r| Dependency {
+            id: r.id,
+            from_task_id: r.from_task_id,
+            to_task_id: r.to_task_id,
+            dep_type: Self::parse_dep_type(&r.dep_type),
+            min_gap: r.min_gap,
+        }))
     }
 
     async fn insert(&self, dependency: &Dependency) -> anyhow::Result<()> {
