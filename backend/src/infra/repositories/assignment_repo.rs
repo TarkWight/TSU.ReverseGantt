@@ -184,6 +184,20 @@ impl AssignmentRepository for PgAssignmentRepository {
     }
 
     async fn exists(&self, task_id: Id, user_id: Id, role: AssignRole) -> anyhow::Result<bool> {
-        todo!()
+        let exists = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM assignments WHERE task_id = $1 AND user_id = $2 AND role = $3
+            ) AS "exists!"
+            "#,
+            task_id,
+            user_id,
+            role.to_string()
+        )
+            .fetch_one(&self.pool)
+            .await
+            .context("Failed to check assignment")?;
+
+        Ok(exists)
     }
 }
