@@ -137,7 +137,16 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn update_email_notifications(&self, id: Id, enabled: bool) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "UPDATE users SET email_notifications_enabled = $2 WHERE id = $1",
+            id,
+            enabled
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update email notifications")?;
+
+        Ok(result.rows_affected() > 0)
     }
 }
 
