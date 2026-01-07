@@ -104,7 +104,16 @@ impl NotificationRepository for PgNotificationRepository {
     }
 
     async fn mark_as_read(&self, id: Id, user_id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2",
+            id,
+            user_id
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to mark as read")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn mark_all_as_read(&self, user_id: Id) -> anyhow::Result<()> {
