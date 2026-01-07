@@ -7,3 +7,4 @@ pub mod dependency_repo;
 pub mod review_repo;
 pub mod artifact_repo;
 pub mod notification_repo;
+pub mod schedule_repo;
