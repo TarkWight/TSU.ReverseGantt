@@ -104,7 +104,23 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn insert(&self, user: &User, password_hash: &str) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            INSERT INTO users (id, email, name, password_hash, global_role, email_notifications_enabled)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+            user.id,
+            user.email,
+            user.name,
+            password_hash,
+            user.global_role.to_string(),
+            user.email_notifications_enabled
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to insert user")?;
+
+        Ok(())
     }
 
     async fn update_global_role(&self, id: Id, role: GlobalRole) -> anyhow::Result<bool> {
