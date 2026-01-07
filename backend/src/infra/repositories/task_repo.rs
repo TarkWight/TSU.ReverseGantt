@@ -226,7 +226,12 @@ impl TaskRepository for PgTaskRepository {
     }
 
     async fn delete(&self, id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!("DELETE FROM tasks WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete task")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn update_schedule(&self, id: Id, schedule: &Schedule) -> anyhow::Result<bool> {
