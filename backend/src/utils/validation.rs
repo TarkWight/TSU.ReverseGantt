@@ -1,6 +1,5 @@
 use crate::utils::AppError;
 
-// Project
 pub fn validate_project_name(name: &str) -> Result<(), AppError> {
     if name.is_empty() {
         return Err(AppError::Validation("Project name cannot be empty".into()));
@@ -46,7 +45,6 @@ pub fn validate_project_optioanl_time(
     Ok(())
 }
 
-// Task
 
 pub fn validate_task_name(name: &str) -> Result<(), AppError> {
     if name.is_empty() {
