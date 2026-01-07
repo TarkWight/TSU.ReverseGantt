@@ -84,7 +84,25 @@ impl MembershipRepository for PgMembershipRepository {
     }
 
     async fn find_by_project_and_user(&self, project_id: Id, user_id: Id) -> anyhow::Result<Option<Membership>> {
-        todo!()
+        let row = sqlx::query!(
+            r#"
+            SELECT id, project_id, user_id, is_leader, tags
+            FROM memberships WHERE project_id = $1 AND user_id = $2
+            "#,
+            project_id,
+            user_id
+        )
+            .fetch_optional(&self.pool)
+            .await
+            .context("Failed to fetch membership")?;
+
+        Ok(row.map(|r| Membership {
+            id: r.id,
+            project_id: r.project_id,
+            user_id: r.user_id,
+            is_leader: r.is_leader,
+            tags: Self::parse_tags(r.tags),
+        }))
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Membership>> {
