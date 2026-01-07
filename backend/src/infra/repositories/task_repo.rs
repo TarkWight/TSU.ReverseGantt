@@ -256,7 +256,30 @@ impl TaskRepository for PgTaskRepository {
     }
 
     async fn has_not_done_descendants(&self, task_id: Id) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            r#"
+            WITH RECURSIVE descendants AS (
+                SELECT id, status, parent_task_id
+                FROM tasks
+                WHERE parent_task_id = $1
+
+                UNION ALL
+
+                SELECT t.id, t.status, t.parent_task_id
+                FROM tasks t
+                INNER JOIN descendants d ON t.parent_task_id = d.id
+            )
+            SELECT COUNT(*) as count
+            FROM descendants
+            WHERE status != 'Done'
+            "#,
+            task_id
+        )
+            .fetch_one(&self.pool)
+            .await
+            .context("Failed to check descendants")?;
+
+        Ok(result.count.unwrap_or(0) > 0)
     }
 }
 
