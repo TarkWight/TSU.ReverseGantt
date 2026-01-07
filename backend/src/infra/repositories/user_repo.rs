@@ -124,7 +124,16 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn update_global_role(&self, id: Id, role: GlobalRole) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            "UPDATE users SET global_role = $2 WHERE id = $1",
+            id,
+            role.to_string()
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update user role")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn update_email_notifications(&self, id: Id, enabled: bool) -> anyhow::Result<bool> {
