@@ -26,7 +26,31 @@ impl PgArtifactRepository {
 #[async_trait]
 impl ArtifactRepository for PgArtifactRepository {
     async fn find_by_task(&self, task_id: Id) -> anyhow::Result<Vec<Artifact>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, task_id, name, uri, kind, created_at, updated_at
+            FROM artifacts
+            WHERE task_id = $1
+            ORDER BY created_at DESC
+            "#,
+            task_id
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch artifacts")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Artifact {
+                id: r.id,
+                task_id: r.task_id,
+                name: r.name,
+                uri: r.uri,
+                kind: r.kind,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            })
+            .collect())
     }
 
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Artifact>> {
