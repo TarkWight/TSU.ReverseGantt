@@ -108,4 +108,13 @@ impl ProjectRepository for ProjectRepository {
 
         Ok(result.rows_affected() > 0)
     }
+
+    async fn delete(&self, id: Id) -> anyhow::Result<bool> {
+        let result = sqlx::query!("DELETE FROM projects WHERE id = $1", id)
+            .execute(&self.pool)
+            .await
+            .context("Failed to delete project")?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
