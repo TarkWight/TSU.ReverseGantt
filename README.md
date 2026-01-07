@@ -28,15 +28,7 @@ A web or mobile client (e.g., SwiftUI) may later be integrated.
 
 ## Architecture
 - `main.rs` — entry point, server setup, routing
-
-
----
-
-## Development Roadmap
-- [x] Setup basic Axum server
-- [x] Implement `/projects` REST endpoint
-- . . .
-- [ ] Integrate frontend UI
+...
 
 ---
 
