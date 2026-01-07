@@ -81,7 +81,26 @@ impl UserRepository for PgUserRepository {
     }
 
     async fn find_all(&self) -> anyhow::Result<Vec<User>> {
-        todo!()
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, email, name, global_role, email_notifications_enabled
+            FROM users ORDER BY name, email
+            "#
+        )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch users")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| User {
+                id: r.id,
+                email: r.email,
+                name: r.name,
+                global_role: Self::parse_global_role(&r.global_role),
+                email_notifications_enabled: r.email_notifications_enabled,
+            })
+            .collect())
     }
 
     async fn insert(&self, user: &User, password_hash: &str) -> anyhow::Result<()> {
