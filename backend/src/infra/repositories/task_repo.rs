@@ -235,7 +235,24 @@ impl TaskRepository for PgTaskRepository {
     }
 
     async fn update_schedule(&self, id: Id, schedule: &Schedule) -> anyhow::Result<bool> {
-        todo!()
+        let result = sqlx::query!(
+            r#"
+            UPDATE tasks SET
+                schedule_ls = $2, schedule_lf = $3, schedule_slack = $4, schedule_is_critical = $5,
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+            id,
+            schedule.ls,
+            schedule.lf,
+            schedule.slack,
+            schedule.is_critical
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update task schedule")?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     async fn has_not_done_descendants(&self, task_id: Id) -> anyhow::Result<bool> {
