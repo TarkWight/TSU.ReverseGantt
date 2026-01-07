@@ -115,7 +115,26 @@ impl ScheduleRepository for PgScheduleRepository {
     }
 
     async fn update_task_schedule(&self, task: &Task) -> anyhow::Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+            UPDATE tasks SET
+                schedule_ls = $2, schedule_lf = $3,
+                schedule_slack = $4, schedule_is_critical = $5,
+                updated_at = $6
+            WHERE id = $1
+            "#,
+            task.id,
+            task.schedule.ls,
+            task.schedule.lf,
+            task.schedule.slack,
+            task.schedule.is_critical,
+            task.updated_at
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update task schedule")?;
+
+        Ok(())
     }
 }
 
