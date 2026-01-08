@@ -523,6 +523,172 @@ const app = {
         };
     },
 
+    taskFilters: [],
+
+    getTaskFilterDefinitions() {
+        return [
+            { key: 'type', label: 'Тип', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'task', label: 'Task' },
+                { value: 'feature', label: 'Feature' }
+            ]},
+            { key: 'status', label: 'Статус', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'planned', label: 'Planned' },
+                { value: 'inprogress', label: 'InProgress' },
+                { value: 'needsreview', label: 'NeedsReview' },
+                { value: 'accepted', label: 'Accepted' },
+                { value: 'rejected', label: 'Rejected' },
+                { value: 'blocked', label: 'Blocked' },
+                { value: 'done', label: 'Done' }
+            ]},
+            { key: 'priority', label: 'Приоритет', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'low', label: 'Low' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'high', label: 'High' },
+                { value: 'critical', label: 'Critical' }
+            ]},
+            { key: 'owner', label: 'Назначена', options: [] },
+            { key: 'buffer', label: 'Буфер', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'with', label: 'С буфером' },
+                { value: 'without', label: 'Без буфера' }
+            ]}
+        ];
+    },
+
+    getAvailableFilterKeys() {
+        const used = new Set(this.taskFilters.map(f => f.key));
+        return this.getTaskFilterDefinitions().filter(def => !used.has(def.key));
+    },
+
+    addTaskFilterFromSelect(selectEl) {
+        const key = selectEl.value;
+        if (!key) return;
+        const exists = this.taskFilters.some(f => f.key === key);
+        if (!exists) {
+            this.taskFilters.push({ key, value: 'all', active: true });
+            this.renderTasksListTab();
+        }
+        selectEl.value = '';
+    },
+
+    setTaskFilterValue(key, value) {
+        const filter = this.taskFilters.find(f => f.key === key);
+        if (filter) {
+            filter.value = value;
+        }
+    },
+
+    toggleTaskFilterActive(key, active) {
+        const filter = this.taskFilters.find(f => f.key === key);
+        if (filter) {
+            filter.active = active;
+        }
+    },
+
+    applyTaskFiltersUI() {
+        // Удаляем неактивные фильтры и перерисовываем
+        this.taskFilters = this.taskFilters.filter(f => f.active);
+        this.renderTasksListTab();
+    },
+
+    clearTaskFilters() {
+        this.taskFilters = [];
+        this.renderTasksListTab();
+    },
+
+    applyFiltersToTasks(tasksWithOwners) {
+        if (!this.taskFilters.length) return tasksWithOwners;
+
+        const activeFilters = this.taskFilters.filter(f => f.active && f.value && f.value !== 'all');
+        if (!activeFilters.length) return tasksWithOwners;
+
+        return tasksWithOwners.filter(({ task, ownerId }) => {
+            return activeFilters.every(f => {
+                const val = (f.value || '').toLowerCase();
+                switch (f.key) {
+                    case 'type':
+                        return (task.taskType || '').toLowerCase() === val;
+                    case 'status':
+                        return (task.status || '').toLowerCase() === val;
+                    case 'priority':
+                        return (task.priority || '').toLowerCase() === val;
+                    case 'owner':
+                        return ownerId ? ownerId.toString() === val : false;
+                    case 'buffer':
+                        const hasBuffer = task.buffer && task.buffer > 0;
+                        return val === 'with' ? hasBuffer : !hasBuffer;
+                    default:
+                        return true;
+                }
+            });
+        });
+    },
+
+    buildFilterControlsHtml(ownerOptions) {
+        const availableFilters = this.getAvailableFilterKeys();
+        const definitions = this.getTaskFilterDefinitions();
+
+        const filterChips = this.taskFilters.map(f => {
+            const def = definitions.find(d => d.key === f.key);
+            if (!def) return '';
+
+            let options = def.options;
+            if (f.key === 'owner') {
+                const ownerOpts = ownerOptions.length
+                    ? ownerOptions
+                    : [{ value: 'all', label: 'Все' }];
+                options = [{ value: 'all', label: 'Все' }, ...ownerOpts];
+            }
+
+            const selectOptions = options.map(o => {
+                const selected = (f.value || 'all') === o.value ? 'selected' : '';
+                return `<option value="${o.value}" ${selected}>${this.escapeHtml(o.label)}</option>`;
+            }).join('');
+
+            const checkboxChecked = f.active ? 'checked' : '';
+
+            return `
+                <div class="filter-chip d-flex align-items-center gap-2 flex-wrap">
+                    <input type="checkbox" class="form-check-input" ${checkboxChecked}
+                        onchange="app.toggleTaskFilterActive('${f.key}', this.checked)">
+                    <span class="fw-semibold">${this.escapeHtml(def.label)}</span>
+                    <select class="form-select form-select-sm filter-select"
+                        onchange="app.setTaskFilterValue('${f.key}', this.value)">
+                        ${selectOptions}
+                    </select>
+                </div>
+            `;
+        }).join('');
+
+        const addSelectOptions = ['<option value="">Выберите...</option>']
+            .concat(availableFilters.map(f => `<option value="${f.key}">${this.escapeHtml(f.label)}</option>`))
+            .join('');
+
+        return `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <select class="form-select form-select-sm" style="width: 220px;"
+                            onchange="app.addTaskFilterFromSelect(this)">
+                            ${addSelectOptions}
+                        </select>
+                        <span class="text-muted">добавить фильтр</span>
+                        <div class="ms-auto d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="app.applyTaskFiltersUI()">Применить</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="app.clearTaskFilters()">Очистить</button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${filterChips || '<span class="text-muted">Фильтры не выбраны</span>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     async renderTasksListTab() {
         const tabContent = document.getElementById('project-tab-content');
         const tasks = this.currentProjectTasks || [];
@@ -546,6 +712,7 @@ const app = {
         if (tasks.length === 0) {
             html += '<p class="text-muted">No tasks yet</p>';
         } else {
+            const ownerMap = new Map();
             const taskPromises = tasks.map(async (task) => {
                 let ownerName = 'Unassigned';
                 let ownerId = null;
@@ -556,6 +723,7 @@ const app = {
                         ownerId = ownerAssignment.userId;
                         const user = await api.getUser(ownerAssignment.userId);
                         ownerName = user.name;
+                        ownerMap.set(ownerId.toString(), user.name);
                     }
                 } catch (error) {
                     console.error(`Failed to load owner for task ${task.id}:`, error);
@@ -565,6 +733,13 @@ const app = {
             });
             
             const tasksWithOwners = await Promise.all(taskPromises);
+            const ownerOptions = Array.from(ownerMap.entries()).map(([id, name]) => ({
+                value: id,
+                label: name
+            }));
+
+            html += this.buildFilterControlsHtml(ownerOptions);
+            const filteredTasks = this.applyFiltersToTasks(tasksWithOwners);
             
             html += '<div class="table-responsive"><table class="table table-hover tasks-table">';
             html += '<thead><tr>';
@@ -577,7 +752,7 @@ const app = {
             html += '<th style="width: 200px;">Info</th>';
             html += '</tr></thead><tbody>';
             
-            tasksWithOwners.forEach(({ task, ownerName }) => {
+            filteredTasks.forEach(({ task, ownerName }) => {
                 const taskId = typeof task.id === 'string' ? task.id : task.id.toString();
                 const typeIcon = this.getTaskTypeIcon(task.taskType);
                 const statusDisplay = this.getTaskStatusDisplay(task);
