@@ -546,6 +546,7 @@ const app = {
                 const statusLabel = this.humanizeEnum(node.task.status);
                 const isCritical = node.task.schedule && node.task.schedule.isCritical;
                 const criticalClass = isCritical ? ' critical' : '';
+                const badgeClass = this.getTaskBadgeClass(node.task);
                 
                 let dependenciesHtml = '';
                 if (node.dependencies && node.dependencies.length > 0) {
@@ -564,7 +565,7 @@ const app = {
                                 <h6>${this.escapeHtml(node.task.name)}${isCritical ? ' <span class="badge bg-danger ms-2">Critical</span>' : ''}</h6>
                                 <p class="text-muted mb-1">${this.escapeHtml(node.task.description || 'No description')}</p>
                                 <div class="small">
-                                    <span class="status-badge status-${(node.task.status || '').toLowerCase().replace('_', '-')}">${this.escapeHtml(statusLabel)}</span>
+                                    <span class="status-badge ${badgeClass}">${this.escapeHtml(statusLabel)}</span>
                                     <span class="text-muted ms-2">Owner: ${this.escapeHtml(node.ownerName)}</span>
                                 </div>
                                 ${dependenciesHtml}
@@ -669,11 +670,12 @@ const app = {
         const priorityLabel = this.humanizeEnum(task.priority);
         const taskTypeLabel = this.humanizeEnum(task.taskType);
         const hardnessLabel = this.humanizeEnum(task.hardness);
+        const badgeClass = this.getTaskBadgeClass(task);
         
         let html = `
             <div class="mb-3"><label class="form-label"><strong>Description</strong></label><p>${this.escapeHtml(task.description || 'No description')}</p></div>
             <div class="row mb-3">
-                <div class="col-md-3"><label class="form-label"><strong>Status</strong></label><p><span class="status-badge status-${(task.status || '').toLowerCase().replace('_', '-')}">${this.escapeHtml(statusLabel)}</span></p></div>
+                <div class="col-md-3"><label class="form-label"><strong>Status</strong></label><p><span class="status-badge ${badgeClass}">${this.escapeHtml(statusLabel)}</span></p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Priority</strong></label><p>${this.escapeHtml(priorityLabel)}</p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Task Type</strong></label><p>${this.escapeHtml(taskTypeLabel)}</p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Owner</strong></label><p>${this.escapeHtml(ownerName)}</p></div>
@@ -725,6 +727,23 @@ const app = {
         if (actionButtons) {
             actionsDiv.innerHTML = actionButtons;
         }
+    },
+
+    getTaskBadgeClass(task) {
+        const status = (task.status || '').toLowerCase();
+        const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
+        const isLate = lf ? new Date() > lf : false;
+
+        if (status === 'accepted') {
+            return 'status-closed';
+        }
+        if (status === 'done' || status === 'needsreview') {
+            return 'status-completed';
+        }
+        if (status === 'rejected' || status === 'blocked' || isLate) {
+            return 'status-late';
+        }
+        return 'status-ontrack';
     },
 
     async loadTaskDependencies(taskId) {

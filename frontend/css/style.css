@@ -68,6 +68,26 @@ body {
     font-size: 0.85em;
 }
 
+.status-ontrack {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-late {
+    background-color: #dc3545;
+    color: white;
+}
+
+.status-completed {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-closed {
+    background-color: #146c43;
+    color: white;
+}
+
 .status-planned {
     background-color: #6c757d;
     color: white;
