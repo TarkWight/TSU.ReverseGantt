@@ -7,6 +7,9 @@ const app = {
     allProjects: [],
     currentProjectMembers: null,
     currentProjectTasks: null,
+    taskFilters: [],
+    taskSortColumn: null,
+    taskSortDirection: 'asc', // 'asc' or 'desc'
 
     init() {
         this.initTemplates();
@@ -596,6 +599,8 @@ const app = {
 
     clearTaskFilters() {
         this.taskFilters = [];
+        this.taskSortColumn = null;
+        this.taskSortDirection = 'asc';
         this.renderTasksListTab();
     },
 
@@ -625,6 +630,76 @@ const app = {
                 }
             });
         });
+    },
+
+    buildSortableHeader(column, label, width) {
+        const isActive = this.taskSortColumn === column;
+        const icon = isActive 
+            ? (this.taskSortDirection === 'asc' 
+                ? '<i class="bi bi-arrow-up"></i>' 
+                : '<i class="bi bi-arrow-down"></i>')
+            : '<i class="bi bi-arrow-down-up" style="opacity: 0.3;"></i>';
+        const style = width 
+            ? `style="width: ${width}px; cursor: pointer; user-select: none;"` 
+            : `style="cursor: pointer; user-select: none;"`;
+        return `<th ${style} class="sortable-header" onclick="app.setTaskSort('${column}')">
+            <div class="d-flex align-items-center justify-content-between">
+                <span>${label}</span>
+                <span style="margin-left: 4px;">${icon}</span>
+            </div>
+        </th>`;
+    },
+
+    setTaskSort(column) {
+        if (this.taskSortColumn === column) {
+            this.taskSortDirection = this.taskSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.taskSortColumn = column;
+            this.taskSortDirection = 'asc';
+        }
+        this.renderTasksListTab();
+    },
+
+    applySortToTasks(tasksWithOwners) {
+        if (!this.taskSortColumn) {
+            return tasksWithOwners;
+        }
+
+        const sorted = [...tasksWithOwners].sort((a, b) => {
+            let aVal, bVal;
+
+            switch (this.taskSortColumn) {
+                case 'type':
+                    aVal = (a.task.taskType || '').toLowerCase();
+                    bVal = (b.task.taskType || '').toLowerCase();
+                    break;
+                case 'status':
+                    aVal = (a.task.status || '').toLowerCase();
+                    bVal = (b.task.status || '').toLowerCase();
+                    break;
+                case 'priority':
+                    const priorityOrder = { 'low': 1, 'normal': 2, 'high': 3, 'critical': 4 };
+                    aVal = priorityOrder[(a.task.priority || '').toLowerCase()] || 0;
+                    bVal = priorityOrder[(b.task.priority || '').toLowerCase()] || 0;
+                    break;
+                case 'assignee':
+                    aVal = (a.ownerName || 'Unassigned').toLowerCase();
+                    bVal = (b.ownerName || 'Unassigned').toLowerCase();
+                    break;
+                case 'progress':
+                    aVal = a.task.progress || 0;
+                    bVal = b.task.progress || 0;
+                    break;
+                default:
+                    return 0;
+            }
+
+            if (aVal < bVal) return this.taskSortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return this.taskSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return sorted;
     },
 
     buildFilterControlsHtml(ownerOptions) {
@@ -740,19 +815,20 @@ const app = {
 
             html += this.buildFilterControlsHtml(ownerOptions);
             const filteredTasks = this.applyFiltersToTasks(tasksWithOwners);
+            const sortedTasks = this.applySortToTasks(filteredTasks);
             
             html += '<div class="table-responsive"><table class="table table-hover tasks-table">';
             html += '<thead><tr>';
-            html += '<th style="width: 80px;">Type</th>';
-            html += '<th style="width: 120px;">Status</th>';
-            html += '<th style="width: 100px;">Priority</th>';
+            html += this.buildSortableHeader('type', 'Type', 80);
+            html += this.buildSortableHeader('status', 'Status', 120);
+            html += this.buildSortableHeader('priority', 'Priority', 100);
             html += '<th>Title</th>';
-            html += '<th style="width: 150px;">Assignee</th>';
-            html += '<th style="width: 120px;">Progress</th>';
+            html += this.buildSortableHeader('assignee', 'Assignee', 150);
+            html += this.buildSortableHeader('progress', 'Progress', 120);
             html += '<th style="width: 200px;">Info</th>';
             html += '</tr></thead><tbody>';
             
-            filteredTasks.forEach(({ task, ownerName }) => {
+            sortedTasks.forEach(({ task, ownerName }) => {
                 const taskId = typeof task.id === 'string' ? task.id : task.id.toString();
                 const typeIcon = this.getTaskTypeIcon(task.taskType);
                 const statusDisplay = this.getTaskStatusDisplay(task);

@@ -344,3 +344,11 @@ body {
 .status-indicator {
     flex-shrink: 0;
 }
+
+.sortable-header {
+    transition: background-color 0.15s ease;
+}
+
+.sortable-header:hover {
+    background-color: #f8f9fa;
+}
