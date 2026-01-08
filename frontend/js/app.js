@@ -227,7 +227,18 @@ const app = {
         document.querySelectorAll('#project-tabs .nav-link').forEach(link => {
             link.classList.remove('active');
         });
-        event?.target?.classList.add('active');
+        
+        const tabLinks = document.querySelectorAll('#project-tabs .nav-link');
+        tabLinks.forEach(link => {
+            const onclickAttr = link.getAttribute('onclick');
+            if (onclickAttr && onclickAttr.includes(`'${tab}'`)) {
+                link.classList.add('active');
+            }
+        });
+        
+        if (event?.target) {
+            event.target.classList.add('active');
+        }
 
         if (tab === 'overview') {
             await this.renderOverviewTab();
