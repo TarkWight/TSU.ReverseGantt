@@ -467,6 +467,62 @@ const app = {
         tabContent.innerHTML = html;
     },
 
+    getTaskTypeIcon(taskType) {
+        const type = (taskType || '').toLowerCase();
+        if (type === 'feature') {
+            return '⭐ Feature';
+        }
+        return '🧩 Task';
+    },
+
+    getTaskStatusDisplay(task) {
+        const status = (task.status || '').toLowerCase();
+        const statusLabel = this.humanizeEnum(task.status);
+        const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
+        const isLate = lf ? new Date() > lf : false;
+        
+        let statusColor = '#6c757d'; // gray - default
+        if (status === 'accepted') {
+            statusColor = '#155724'; // dark green
+        } else if (status === 'done' || status === 'needsreview') {
+            statusColor = '#198754'; // green
+        } else if (status === 'rejected' || status === 'blocked' || isLate) {
+            statusColor = '#dc3545'; // red
+        } else if (status === 'inprogress') {
+            statusColor = '#0d6efd'; // blue
+        }
+        
+        return {
+            label: statusLabel,
+            color: statusColor
+        };
+    },
+
+    getPriorityDisplay(priority) {
+        const prio = (priority || '').toLowerCase();
+        let color = '#6c757d'; // gray - default
+        let icon = '';
+        
+        if (prio === 'critical') {
+            color = '#dc3545'; // red
+            icon = '<i class="bi bi-exclamation-triangle-fill"></i> ';
+        } else if (prio === 'high') {
+            color = '#fd7e14'; // orange
+            icon = '<i class="bi bi-arrow-up-circle-fill"></i> ';
+        } else if (prio === 'normal') {
+            color = '#0d6efd'; // blue
+        } else if (prio === 'low') {
+            color = '#6c757d'; // gray
+            icon = '<i class="bi bi-arrow-down-circle-fill"></i> ';
+        }
+        
+        return {
+            label: this.humanizeEnum(priority),
+            color: color,
+            icon: icon
+        };
+    },
+
     async renderTasksListTab() {
         const tabContent = document.getElementById('project-tab-content');
         const tasks = this.currentProjectTasks || [];
@@ -493,7 +549,6 @@ const app = {
             const taskPromises = tasks.map(async (task) => {
                 let ownerName = 'Unassigned';
                 let ownerId = null;
-                let dependencies = [];
                 try {
                     const assignments = await api.getTaskAssignments(task.id);
                     const ownerAssignment = assignments.find(a => a.role === 'owner');
@@ -506,80 +561,55 @@ const app = {
                     console.error(`Failed to load owner for task ${task.id}:`, error);
                 }
                 
-                try {
-                    const deps = await api.getDependencies(task.id);
-                    if (deps && deps.length > 0) {
-                        const depPromises = deps.map(async (dep) => {
-                            const isOutgoing = dep.fromTaskId === task.id || dep.from_task_id === task.id;
-                            const otherTaskId = isOutgoing ? (dep.toTaskId || dep.to_task_id) : (dep.fromTaskId || dep.from_task_id);
-                            try {
-                                const otherTask = await api.getTask(otherTaskId);
-                                return { dep, otherTaskName: otherTask.name, isOutgoing, depType: dep.depType || dep.dep_type || 'FS' };
-                            } catch (error) {
-                                return { dep, otherTaskName: `Task ${otherTaskId}`, isOutgoing, depType: dep.depType || dep.dep_type || 'FS' };
-                            }
-                        });
-                        dependencies = await Promise.all(depPromises);
-                    }
-                } catch (error) {
-                    console.error(`Failed to load dependencies for task ${task.id}:`, error);
-                }
-                
-                return { task, ownerName, ownerId, dependencies };
+                return { task, ownerName, ownerId };
             });
             
             const tasksWithOwners = await Promise.all(taskPromises);
             
-            const byParent = new Map();
-            const roots = [];
-            tasksWithOwners.forEach(t => {
-                const pid = t.task.parentTaskId || null;
-                if (!pid) { roots.push(t); }
-                else {
-                    if (!byParent.has(pid)) byParent.set(pid, []);
-                    byParent.get(pid).push(t);
+            html += '<div class="table-responsive"><table class="table table-hover tasks-table">';
+            html += '<thead><tr>';
+            html += '<th style="width: 80px;">Type</th>';
+            html += '<th style="width: 120px;">Status</th>';
+            html += '<th style="width: 100px;">Priority</th>';
+            html += '<th>Title</th>';
+            html += '<th style="width: 150px;">Assignee</th>';
+            html += '<th style="width: 200px;">Info</th>';
+            html += '</tr></thead><tbody>';
+            
+            tasksWithOwners.forEach(({ task, ownerName }) => {
+                const taskId = typeof task.id === 'string' ? task.id : task.id.toString();
+                const typeIcon = this.getTaskTypeIcon(task.taskType);
+                const statusDisplay = this.getTaskStatusDisplay(task);
+                const priorityDisplay = this.getPriorityDisplay(task.priority);
+                const isCritical = task.schedule && task.schedule.isCritical;
+                const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
+                const slack = task.schedule?.slack;
+                
+                let infoBadges = '';
+                if (isCritical) {
+                    infoBadges += '<span class="badge bg-danger" style="font-size: 0.7em; margin-right: 4px;">Critical</span>';
                 }
+                if (lf) {
+                    const dueDate = this.formatDate(lf.toISOString());
+                    infoBadges += `<span class="badge bg-secondary" style="font-size: 0.7em; margin-right: 4px;">Due: ${dueDate}</span>`;
+                }
+                if (slack !== null && slack !== undefined) {
+                    const slackHours = Math.round(slack / 3600);
+                    const slackClass = slackHours < 0 ? 'bg-danger' : slackHours === 0 ? 'bg-warning' : 'bg-info';
+                    infoBadges += `<span class="badge ${slackClass}" style="font-size: 0.7em;">Slack: ${slackHours}h</span>`;
+                }
+                
+                html += `<tr class="task-row" onclick="app.showTaskDetails('${taskId}')" style="cursor: pointer;">`;
+                html += `<td>${typeIcon}</td>`;
+                html += `<td><div class="d-flex align-items-center"><span class="status-indicator" style="width: 4px; height: 16px; background-color: ${statusDisplay.color}; margin-right: 6px; border-radius: 2px;"></span><span>${this.escapeHtml(statusDisplay.label)}</span></div></td>`;
+                html += `<td style="color: ${priorityDisplay.color};">${priorityDisplay.icon}${this.escapeHtml(priorityDisplay.label)}</td>`;
+                html += `<td class="task-title">${this.escapeHtml(task.name)}</td>`;
+                html += `<td>${this.escapeHtml(ownerName)}</td>`;
+                html += `<td>${infoBadges}</td>`;
+                html += '</tr>';
             });
-
-            const renderNode = (node, level = 0) => {
-                const taskId = typeof node.task.id === 'string' ? node.task.id : node.task.id.toString();
-                const statusLabel = this.humanizeEnum(node.task.status);
-                const isCritical = node.task.schedule && node.task.schedule.isCritical;
-                const criticalClass = isCritical ? ' critical' : '';
-                const badgeClass = this.getTaskBadgeClass(node.task);
-                
-                let dependenciesHtml = '';
-                if (node.dependencies && node.dependencies.length > 0) {
-                    dependenciesHtml = '<div class="small mt-1"><i class="bi bi-link-45deg"></i> <strong>Dependencies:</strong> ';
-                    const depStrings = node.dependencies.map(d => 
-                        `<span class="text-info">${this.escapeHtml(d.otherTaskName)}</span> <span class="badge bg-secondary">${this.escapeHtml(d.depType)}</span>`
-                    );
-                    dependenciesHtml += depStrings.join(', ') + '</div>';
-                }
-                
-                let row = `
-                    <div class="list-group-item task-item${criticalClass}" style="cursor:pointer; padding-left:${16 + level * 16}px"
-                         onclick="app.showTaskDetails('${taskId}')">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div style="flex: 1;">
-                                <h6>${this.escapeHtml(node.task.name)}${isCritical ? ' <span class="badge bg-danger ms-2">Critical</span>' : ''}</h6>
-                                <p class="text-muted mb-1">${this.escapeHtml(node.task.description || 'No description')}</p>
-                                <div class="small">
-                                    <span class="status-badge ${badgeClass}">${this.escapeHtml(statusLabel)}</span>
-                                    <span class="text-muted ms-2">Owner: ${this.escapeHtml(node.ownerName)}</span>
-                                </div>
-                                ${dependenciesHtml}
-                            </div>
-                        </div>
-                    </div>`;
-                const children = byParent.get(node.task.id) || [];
-                children.forEach(child => { row += renderNode(child, level + 1); });
-                return row;
-            };
-
-            html += '<div class="list-group">';
-            roots.forEach(root => { html += renderNode(root, 0); });
-            html += '</div>';
+            
+            html += '</tbody></table></div>';
 
             const currentUserId = localStorage.getItem('userId');
             const needsReview = tasksWithOwners.filter(t => 
@@ -670,12 +700,11 @@ const app = {
         const priorityLabel = this.humanizeEnum(task.priority);
         const taskTypeLabel = this.humanizeEnum(task.taskType);
         const hardnessLabel = this.humanizeEnum(task.hardness);
-        const badgeClass = this.getTaskBadgeClass(task);
         
         let html = `
             <div class="mb-3"><label class="form-label"><strong>Description</strong></label><p>${this.escapeHtml(task.description || 'No description')}</p></div>
             <div class="row mb-3">
-                <div class="col-md-3"><label class="form-label"><strong>Status</strong></label><p><span class="status-badge ${badgeClass}">${this.escapeHtml(statusLabel)}</span></p></div>
+                <div class="col-md-3"><label class="form-label"><strong>Status</strong></label><p><span class="status-badge status-${(task.status || '').toLowerCase().replace('_', '-')}">${this.escapeHtml(statusLabel)}</span></p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Priority</strong></label><p>${this.escapeHtml(priorityLabel)}</p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Task Type</strong></label><p>${this.escapeHtml(taskTypeLabel)}</p></div>
                 <div class="col-md-3"><label class="form-label"><strong>Owner</strong></label><p>${this.escapeHtml(ownerName)}</p></div>
@@ -727,23 +756,6 @@ const app = {
         if (actionButtons) {
             actionsDiv.innerHTML = actionButtons;
         }
-    },
-
-    getTaskBadgeClass(task) {
-        const status = (task.status || '').toLowerCase();
-        const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
-        const isLate = lf ? new Date() > lf : false;
-
-        if (status === 'accepted') {
-            return 'status-closed';
-        }
-        if (status === 'done' || status === 'needsreview') {
-            return 'status-completed';
-        }
-        if (status === 'rejected' || status === 'blocked' || isLate) {
-            return 'status-late';
-        }
-        return 'status-ontrack';
     },
 
     async loadTaskDependencies(taskId) {
