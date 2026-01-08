@@ -573,6 +573,7 @@ const app = {
             html += '<th style="width: 100px;">Priority</th>';
             html += '<th>Title</th>';
             html += '<th style="width: 150px;">Assignee</th>';
+            html += '<th style="width: 120px;">Progress</th>';
             html += '<th style="width: 200px;">Info</th>';
             html += '</tr></thead><tbody>';
             
@@ -584,6 +585,17 @@ const app = {
                 const isCritical = task.schedule && task.schedule.isCritical;
                 const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
                 const slack = task.schedule?.slack;
+                const progress = task.progress || 0;
+                const isOverdue = lf ? new Date() > lf : false;
+                
+                const progressBgColor = isOverdue ? '#dc3545' : '#e9ecef';
+                const textColor = progress > 50 ? '#fff' : (isOverdue ? '#fff' : '#495057');
+                const progressBar = `
+                    <div class="task-progress-container" style="width: 100px; height: 20px; background-color: ${progressBgColor}; border-radius: 4px; position: relative; overflow: hidden;">
+                        <div class="task-progress-bar" style="width: ${progress}%; height: 100%; background-color: #198754; transition: width 0.3s ease;"></div>
+                        <span class="task-progress-text" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.75rem; font-weight: 600; color: ${textColor}; pointer-events: none; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">${progress}%</span>
+                    </div>
+                `;
                 
                 let infoBadges = '';
                 if (isCritical) {
@@ -605,6 +617,7 @@ const app = {
                 html += `<td style="color: ${priorityDisplay.color};">${priorityDisplay.icon}${this.escapeHtml(priorityDisplay.label)}</td>`;
                 html += `<td class="task-title">${this.escapeHtml(task.name)}</td>`;
                 html += `<td>${this.escapeHtml(ownerName)}</td>`;
+                html += `<td>${progressBar}</td>`;
                 html += `<td>${infoBadges}</td>`;
                 html += '</tr>';
             });
