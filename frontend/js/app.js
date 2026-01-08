@@ -608,7 +608,11 @@ const app = {
                 if (slack !== null && slack !== undefined) {
                     const slackHours = Math.round(slack / 3600);
                     const slackClass = slackHours < 0 ? 'bg-danger' : slackHours === 0 ? 'bg-warning' : 'bg-info';
-                    infoBadges += `<span class="badge ${slackClass}" style="font-size: 0.7em;">Slack: ${slackHours}h</span>`;
+                    infoBadges += `<span class="badge ${slackClass}" style="font-size: 0.7em; margin-right: 4px;">Slack: ${slackHours}h</span>`;
+                }
+                if (task.buffer && task.buffer > 0) {
+                    const bufferHours = Math.round(task.buffer / 3600);
+                    infoBadges += `<span class="badge bg-primary" style="font-size: 0.7em;">Buffer: ${bufferHours}h</span>`;
                 }
                 
                 html += `<tr class="task-row" onclick="app.showTaskDetails('${taskId}')" style="cursor: pointer;">`;
