@@ -7,6 +7,8 @@ const app = {
     allProjects: [],
     currentProjectMembers: null,
     currentProjectTasks: null,
+    taskFilters: [],
+    taskSorts: [], // [{ column: 'type', direction: 'asc', order: 1 }, ...]
 
     init() {
         this.initTemplates();
@@ -467,6 +469,350 @@ const app = {
         tabContent.innerHTML = html;
     },
 
+    getTaskTypeIcon(taskType) {
+        const type = (taskType || '').toLowerCase();
+        if (type === 'feature') {
+            return '⭐ Feature';
+        }
+        return '🧩 Task';
+    },
+
+    getTaskStatusDisplay(task) {
+        const status = (task.status || '').toLowerCase();
+        const statusLabel = this.humanizeEnum(task.status);
+        const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
+        const isLate = lf ? new Date() > lf : false;
+        
+        let statusColor = '#6c757d'; // gray - default
+        if (status === 'accepted') {
+            statusColor = '#155724'; // dark green
+        } else if (status === 'done' || status === 'needsreview') {
+            statusColor = '#198754'; // green
+        } else if (status === 'rejected' || status === 'blocked' || isLate) {
+            statusColor = '#dc3545'; // red
+        } else if (status === 'inprogress') {
+            statusColor = '#0d6efd'; // blue
+        }
+        
+        return {
+            label: statusLabel,
+            color: statusColor
+        };
+    },
+
+    getPriorityDisplay(priority) {
+        const prio = (priority || '').toLowerCase();
+        let color = '#6c757d'; // gray - default
+        let icon = '';
+        
+        if (prio === 'critical') {
+            color = '#dc3545'; // red
+            icon = '<i class="bi bi-exclamation-triangle-fill"></i> ';
+        } else if (prio === 'high') {
+            color = '#fd7e14'; // orange
+            icon = '<i class="bi bi-arrow-up-circle-fill"></i> ';
+        } else if (prio === 'normal') {
+            color = '#0d6efd'; // blue
+        } else if (prio === 'low') {
+            color = '#6c757d'; // gray
+            icon = '<i class="bi bi-arrow-down-circle-fill"></i> ';
+        }
+        
+        return {
+            label: this.humanizeEnum(priority),
+            color: color,
+            icon: icon
+        };
+    },
+
+    taskFilters: [],
+
+    getTaskFilterDefinitions() {
+        return [
+            { key: 'type', label: 'Тип', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'task', label: 'Task' },
+                { value: 'feature', label: 'Feature' }
+            ]},
+            { key: 'status', label: 'Статус', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'planned', label: 'Planned' },
+                { value: 'inprogress', label: 'InProgress' },
+                { value: 'needsreview', label: 'NeedsReview' },
+                { value: 'accepted', label: 'Accepted' },
+                { value: 'rejected', label: 'Rejected' },
+                { value: 'blocked', label: 'Blocked' },
+                { value: 'done', label: 'Done' }
+            ]},
+            { key: 'priority', label: 'Приоритет', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'low', label: 'Low' },
+                { value: 'normal', label: 'Normal' },
+                { value: 'high', label: 'High' },
+                { value: 'critical', label: 'Critical' }
+            ]},
+            { key: 'owner', label: 'Назначена', options: [] },
+            { key: 'buffer', label: 'Буфер', options: [
+                { value: 'all', label: 'Все' },
+                { value: 'with', label: 'С буфером' },
+                { value: 'without', label: 'Без буфера' }
+            ]}
+        ];
+    },
+
+    getAvailableFilterKeys() {
+        const used = new Set(this.taskFilters.map(f => f.key));
+        return this.getTaskFilterDefinitions().filter(def => !used.has(def.key));
+    },
+
+    addTaskFilterFromSelect(selectEl) {
+        const key = selectEl.value;
+        if (!key) return;
+        const exists = this.taskFilters.some(f => f.key === key);
+        if (!exists) {
+            this.taskFilters.push({ key, value: 'all', active: true });
+            this.renderTasksListTab();
+        }
+        selectEl.value = '';
+    },
+
+    setTaskFilterValue(key, value) {
+        const filter = this.taskFilters.find(f => f.key === key);
+        if (filter) {
+            filter.value = value;
+        }
+    },
+
+    toggleTaskFilterActive(key, active) {
+        const filter = this.taskFilters.find(f => f.key === key);
+        if (filter) {
+            filter.active = active;
+        }
+    },
+
+    applyTaskFiltersUI() {
+        // Удаляем неактивные фильтры и перерисовываем
+        this.taskFilters = this.taskFilters.filter(f => f.active);
+        this.renderTasksListTab();
+    },
+
+    clearTaskFilters() {
+        this.taskFilters = [];
+        this.taskSorts = [];
+        this.renderTasksListTab();
+    },
+
+    applyFiltersToTasks(tasksWithOwners) {
+        if (!this.taskFilters.length) return tasksWithOwners;
+
+        const activeFilters = this.taskFilters.filter(f => f.active && f.value && f.value !== 'all');
+        if (!activeFilters.length) return tasksWithOwners;
+
+        return tasksWithOwners.filter(({ task, ownerId }) => {
+            return activeFilters.every(f => {
+                const val = (f.value || '').toLowerCase();
+                switch (f.key) {
+                    case 'type':
+                        return (task.taskType || '').toLowerCase() === val;
+                    case 'status':
+                        return (task.status || '').toLowerCase() === val;
+                    case 'priority':
+                        return (task.priority || '').toLowerCase() === val;
+                    case 'owner':
+                        return ownerId ? ownerId.toString() === val : false;
+                    case 'buffer':
+                        const hasBuffer = task.buffer && task.buffer > 0;
+                        return val === 'with' ? hasBuffer : !hasBuffer;
+                    default:
+                        return true;
+                }
+            });
+        });
+    },
+
+    buildSortableHeader(column, label, width) {
+        const sortInfo = this.taskSorts.find(s => s.column === column);
+        const isActive = !!sortInfo;
+        const order = sortInfo ? sortInfo.order : null;
+        const direction = sortInfo ? sortInfo.direction : null;
+        
+        let icon = '<i class="bi bi-arrow-down-up" style="opacity: 0.3;"></i>';
+        let orderBadge = '';
+        let removeBtn = '';
+        
+        if (isActive) {
+            icon = direction === 'asc' 
+                ? '<i class="bi bi-arrow-up"></i>' 
+                : '<i class="bi bi-arrow-down"></i>';
+            orderBadge = `<span class="badge bg-primary" style="font-size: 0.65rem; margin-right: 4px;">${order}</span>`;
+            removeBtn = `<span class="sort-remove-btn" onclick="event.stopPropagation(); app.removeTaskSort('${column}')" style="margin-left: 4px; cursor: pointer; color: #dc3545;"><i class="bi bi-x-circle"></i></span>`;
+        }
+        
+        const style = width 
+            ? `style="width: ${width}px; cursor: pointer; user-select: none;"` 
+            : `style="cursor: pointer; user-select: none;"`;
+        return `<th ${style} class="sortable-header" onclick="app.setTaskSort('${column}')">
+            <div class="d-flex align-items-center justify-content-between" style="gap: 4px;">
+                <span style="flex-shrink: 0;">${label}</span>
+                <div class="d-flex align-items-center" style="flex-shrink: 0; gap: 2px;">
+                    ${orderBadge}
+                    <span style="flex-shrink: 0;">${icon}</span>
+                    ${removeBtn}
+                </div>
+            </div>
+        </th>`;
+    },
+
+    setTaskSort(column) {
+        const existingIndex = this.taskSorts.findIndex(s => s.column === column);
+        
+        if (existingIndex !== -1) {
+            // Колонка уже в сортировке - переключаем направление
+            this.taskSorts[existingIndex].direction = 
+                this.taskSorts[existingIndex].direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            // Добавляем новую колонку в сортировку
+            const maxOrder = this.taskSorts.length > 0 
+                ? Math.max(...this.taskSorts.map(s => s.order)) 
+                : 0;
+            this.taskSorts.push({
+                column: column,
+                direction: 'asc',
+                order: maxOrder + 1
+            });
+        }
+        
+        this.renderTasksListTab();
+    },
+
+    removeTaskSort(column) {
+        const index = this.taskSorts.findIndex(s => s.column === column);
+        if (index !== -1) {
+            const removedOrder = this.taskSorts[index].order;
+            this.taskSorts.splice(index, 1);
+            // Перенумеровываем оставшиеся сортировки
+            this.taskSorts.forEach(s => {
+                if (s.order > removedOrder) {
+                    s.order--;
+                }
+            });
+            this.renderTasksListTab();
+        }
+    },
+
+    getTaskSortValue(taskData, column) {
+        const { task, ownerName } = taskData;
+        switch (column) {
+            case 'type':
+                return (task.taskType || '').toLowerCase();
+            case 'status':
+                return (task.status || '').toLowerCase();
+            case 'priority':
+                const priorityOrder = { 'low': 1, 'normal': 2, 'high': 3, 'critical': 4 };
+                return priorityOrder[(task.priority || '').toLowerCase()] || 0;
+            case 'assignee':
+                return (ownerName || 'Unassigned').toLowerCase();
+            case 'progress':
+                return task.progress || 0;
+            default:
+                return null;
+        }
+    },
+
+    applySortToTasks(tasksWithOwners) {
+        if (!this.taskSorts || this.taskSorts.length === 0) {
+            return tasksWithOwners;
+        }
+
+        // Сортируем по приоритету (order), затем применяем сортировку
+        const sortedSorts = [...this.taskSorts].sort((a, b) => a.order - b.order);
+
+        // Стабильная сортировка: сохраняем исходный индекс для равных значений
+        const tasksWithIndex = tasksWithOwners.map((item, index) => ({ item, originalIndex: index }));
+        
+        const sorted = tasksWithIndex.sort((a, b) => {
+            // Применяем все критерии сортировки по порядку
+            for (const sort of sortedSorts) {
+                const aVal = this.getTaskSortValue(a.item, sort.column);
+                const bVal = this.getTaskSortValue(b.item, sort.column);
+                
+                if (aVal < bVal) {
+                    return sort.direction === 'asc' ? -1 : 1;
+                }
+                if (aVal > bVal) {
+                    return sort.direction === 'asc' ? 1 : -1;
+                }
+                // Если значения равны, используем исходный индекс для стабильности
+            }
+            // Если все критерии равны, сохраняем исходный порядок
+            return a.originalIndex - b.originalIndex;
+        });
+
+        return sorted.map(entry => entry.item);
+    },
+
+    buildFilterControlsHtml(ownerOptions) {
+        const availableFilters = this.getAvailableFilterKeys();
+        const definitions = this.getTaskFilterDefinitions();
+
+        const filterChips = this.taskFilters.map(f => {
+            const def = definitions.find(d => d.key === f.key);
+            if (!def) return '';
+
+            let options = def.options;
+            if (f.key === 'owner') {
+                const ownerOpts = ownerOptions.length
+                    ? ownerOptions
+                    : [{ value: 'all', label: 'Все' }];
+                options = [{ value: 'all', label: 'Все' }, ...ownerOpts];
+            }
+
+            const selectOptions = options.map(o => {
+                const selected = (f.value || 'all') === o.value ? 'selected' : '';
+                return `<option value="${o.value}" ${selected}>${this.escapeHtml(o.label)}</option>`;
+            }).join('');
+
+            const checkboxChecked = f.active ? 'checked' : '';
+
+            return `
+                <div class="filter-chip d-flex align-items-center gap-2 flex-wrap">
+                    <input type="checkbox" class="form-check-input" ${checkboxChecked}
+                        onchange="app.toggleTaskFilterActive('${f.key}', this.checked)">
+                    <span class="fw-semibold">${this.escapeHtml(def.label)}</span>
+                    <select class="form-select form-select-sm filter-select"
+                        onchange="app.setTaskFilterValue('${f.key}', this.value)">
+                        ${selectOptions}
+                    </select>
+                </div>
+            `;
+        }).join('');
+
+        const addSelectOptions = ['<option value="">Выберите...</option>']
+            .concat(availableFilters.map(f => `<option value="${f.key}">${this.escapeHtml(f.label)}</option>`))
+            .join('');
+
+        return `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <select class="form-select form-select-sm" style="width: 220px;"
+                            onchange="app.addTaskFilterFromSelect(this)">
+                            ${addSelectOptions}
+                        </select>
+                        <span class="text-muted">добавить фильтр</span>
+                        <div class="ms-auto d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="app.applyTaskFiltersUI()">Применить</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="app.clearTaskFilters()">Очистить</button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${filterChips || '<span class="text-muted">Фильтры не выбраны</span>'}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
     async renderTasksListTab() {
         const tabContent = document.getElementById('project-tab-content');
         const tasks = this.currentProjectTasks || [];
@@ -490,10 +836,10 @@ const app = {
         if (tasks.length === 0) {
             html += '<p class="text-muted">No tasks yet</p>';
         } else {
+            const ownerMap = new Map();
             const taskPromises = tasks.map(async (task) => {
                 let ownerName = 'Unassigned';
                 let ownerId = null;
-                let dependencies = [];
                 try {
                     const assignments = await api.getTaskAssignments(task.id);
                     const ownerAssignment = assignments.find(a => a.role === 'owner');
@@ -501,84 +847,86 @@ const app = {
                         ownerId = ownerAssignment.userId;
                         const user = await api.getUser(ownerAssignment.userId);
                         ownerName = user.name;
+                        ownerMap.set(ownerId.toString(), user.name);
                     }
                 } catch (error) {
                     console.error(`Failed to load owner for task ${task.id}:`, error);
                 }
                 
-                try {
-                    const deps = await api.getDependencies(task.id);
-                    if (deps && deps.length > 0) {
-                        const depPromises = deps.map(async (dep) => {
-                            const isOutgoing = dep.fromTaskId === task.id || dep.from_task_id === task.id;
-                            const otherTaskId = isOutgoing ? (dep.toTaskId || dep.to_task_id) : (dep.fromTaskId || dep.from_task_id);
-                            try {
-                                const otherTask = await api.getTask(otherTaskId);
-                                return { dep, otherTaskName: otherTask.name, isOutgoing, depType: dep.depType || dep.dep_type || 'FS' };
-                            } catch (error) {
-                                return { dep, otherTaskName: `Task ${otherTaskId}`, isOutgoing, depType: dep.depType || dep.dep_type || 'FS' };
-                            }
-                        });
-                        dependencies = await Promise.all(depPromises);
-                    }
-                } catch (error) {
-                    console.error(`Failed to load dependencies for task ${task.id}:`, error);
-                }
-                
-                return { task, ownerName, ownerId, dependencies };
+                return { task, ownerName, ownerId };
             });
             
             const tasksWithOwners = await Promise.all(taskPromises);
+            const ownerOptions = Array.from(ownerMap.entries()).map(([id, name]) => ({
+                value: id,
+                label: name
+            }));
+
+            html += this.buildFilterControlsHtml(ownerOptions);
+            const filteredTasks = this.applyFiltersToTasks(tasksWithOwners);
+            const sortedTasks = this.applySortToTasks(filteredTasks);
             
-            const byParent = new Map();
-            const roots = [];
-            tasksWithOwners.forEach(t => {
-                const pid = t.task.parentTaskId || null;
-                if (!pid) { roots.push(t); }
-                else {
-                    if (!byParent.has(pid)) byParent.set(pid, []);
-                    byParent.get(pid).push(t);
+            html += '<div class="table-responsive"><table class="table table-hover tasks-table">';
+            html += '<thead><tr>';
+            html += this.buildSortableHeader('type', 'Type', 100);
+            html += this.buildSortableHeader('status', 'Status', 140);
+            html += this.buildSortableHeader('priority', 'Priority', 130);
+            html += '<th>Title</th>';
+            html += this.buildSortableHeader('assignee', 'Assignee', 170);
+            html += this.buildSortableHeader('progress', 'Progress', 140);
+            html += '<th style="width: 200px;">Info</th>';
+            html += '</tr></thead><tbody>';
+            
+            sortedTasks.forEach(({ task, ownerName }) => {
+                const taskId = typeof task.id === 'string' ? task.id : task.id.toString();
+                const typeIcon = this.getTaskTypeIcon(task.taskType);
+                const statusDisplay = this.getTaskStatusDisplay(task);
+                const priorityDisplay = this.getPriorityDisplay(task.priority);
+                const isCritical = task.schedule && task.schedule.isCritical;
+                const lf = task.schedule?.lf ? new Date(task.schedule.lf) : null;
+                const slack = task.schedule?.slack;
+                const progress = task.progress || 0;
+                const isOverdue = lf ? new Date() > lf : false;
+                
+                const progressBgColor = isOverdue ? '#dc3545' : '#e9ecef';
+                const textColor = progress > 50 ? '#fff' : (isOverdue ? '#fff' : '#495057');
+                const progressBar = `
+                    <div class="task-progress-container" style="width: 100px; height: 20px; background-color: ${progressBgColor}; border-radius: 4px; position: relative; overflow: hidden;">
+                        <div class="task-progress-bar" style="width: ${progress}%; height: 100%; background-color: #198754; transition: width 0.3s ease;"></div>
+                        <span class="task-progress-text" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.75rem; font-weight: 600; color: ${textColor}; pointer-events: none; z-index: 1; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">${progress}%</span>
+                    </div>
+                `;
+                
+                let infoBadges = '';
+                if (isCritical) {
+                    infoBadges += '<span class="badge bg-danger" style="font-size: 0.7em; margin-right: 4px;">Critical</span>';
                 }
+                if (lf) {
+                    const dueDate = this.formatDate(lf.toISOString());
+                    infoBadges += `<span class="badge bg-secondary" style="font-size: 0.7em; margin-right: 4px;">Due: ${dueDate}</span>`;
+                }
+                if (slack !== null && slack !== undefined) {
+                    const slackHours = Math.round(slack / 3600);
+                    const slackClass = slackHours < 0 ? 'bg-danger' : slackHours === 0 ? 'bg-warning' : 'bg-info';
+                    infoBadges += `<span class="badge ${slackClass}" style="font-size: 0.7em; margin-right: 4px;">Slack: ${slackHours}h</span>`;
+                }
+                if (task.buffer && task.buffer > 0) {
+                    const bufferHours = Math.round(task.buffer / 3600);
+                    infoBadges += `<span class="badge bg-primary" style="font-size: 0.7em;">Buffer: ${bufferHours}h</span>`;
+                }
+                
+                html += `<tr class="task-row" onclick="app.showTaskDetails('${taskId}')" style="cursor: pointer;">`;
+                html += `<td>${typeIcon}</td>`;
+                html += `<td><div class="d-flex align-items-center"><span class="status-indicator" style="width: 4px; height: 16px; background-color: ${statusDisplay.color}; margin-right: 6px; border-radius: 2px;"></span><span>${this.escapeHtml(statusDisplay.label)}</span></div></td>`;
+                html += `<td style="color: ${priorityDisplay.color};">${priorityDisplay.icon}${this.escapeHtml(priorityDisplay.label)}</td>`;
+                html += `<td class="task-title">${this.escapeHtml(task.name)}</td>`;
+                html += `<td>${this.escapeHtml(ownerName)}</td>`;
+                html += `<td>${progressBar}</td>`;
+                html += `<td>${infoBadges}</td>`;
+                html += '</tr>';
             });
-
-            const renderNode = (node, level = 0) => {
-                const taskId = typeof node.task.id === 'string' ? node.task.id : node.task.id.toString();
-                const statusLabel = this.humanizeEnum(node.task.status);
-                const isCritical = node.task.schedule && node.task.schedule.isCritical;
-                const criticalClass = isCritical ? ' critical' : '';
-                
-                let dependenciesHtml = '';
-                if (node.dependencies && node.dependencies.length > 0) {
-                    dependenciesHtml = '<div class="small mt-1"><i class="bi bi-link-45deg"></i> <strong>Dependencies:</strong> ';
-                    const depStrings = node.dependencies.map(d => 
-                        `<span class="text-info">${this.escapeHtml(d.otherTaskName)}</span> <span class="badge bg-secondary">${this.escapeHtml(d.depType)}</span>`
-                    );
-                    dependenciesHtml += depStrings.join(', ') + '</div>';
-                }
-                
-                let row = `
-                    <div class="list-group-item task-item${criticalClass}" style="cursor:pointer; padding-left:${16 + level * 16}px"
-                         onclick="app.showTaskDetails('${taskId}')">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div style="flex: 1;">
-                                <h6>${this.escapeHtml(node.task.name)}${isCritical ? ' <span class="badge bg-danger ms-2">Critical</span>' : ''}</h6>
-                                <p class="text-muted mb-1">${this.escapeHtml(node.task.description || 'No description')}</p>
-                                <div class="small">
-                                    <span class="status-badge status-${(node.task.status || '').toLowerCase().replace('_', '-')}">${this.escapeHtml(statusLabel)}</span>
-                                    <span class="text-muted ms-2">Owner: ${this.escapeHtml(node.ownerName)}</span>
-                                </div>
-                                ${dependenciesHtml}
-                            </div>
-                        </div>
-                    </div>`;
-                const children = byParent.get(node.task.id) || [];
-                children.forEach(child => { row += renderNode(child, level + 1); });
-                return row;
-            };
-
-            html += '<div class="list-group">';
-            roots.forEach(root => { html += renderNode(root, 0); });
-            html += '</div>';
+            
+            html += '</tbody></table></div>';
 
             const currentUserId = localStorage.getItem('userId');
             const needsReview = tasksWithOwners.filter(t => 
