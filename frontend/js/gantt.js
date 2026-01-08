@@ -13,6 +13,7 @@ Object.assign(app, {
     },
 
     async renderGanttChart(tasks) {
+        try {
         const container = document.getElementById('gantt-container');
         if (!container) return;
         if (!tasks || tasks.length === 0) {
@@ -20,14 +21,35 @@ Object.assign(app, {
             return;
         }
 
+            let projectStartDate = null;
+            let projectDueDate = null;
+            if (this.currentProjectId) {
+                try {
+                    const project = await api.getProject(this.currentProjectId);
+                    if (project.startDate) {
+                        const dateStr = project.startDate.split('T')[0]; // "YYYY-MM-DD"
+                        const [year, month, day] = dateStr.split('-').map(Number);
+                        projectStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+                    }
+                    if (project.dueDate) {
+                        const dateStr = project.dueDate.split('T')[0]; // "YYYY-MM-DD"
+                        const [year, month, day] = dateStr.split('-').map(Number);
+                        projectDueDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+                    }
+                } catch (error) {
+                    console.error('Failed to load project:', error);
+                }
+            }
+
         const taskDataPromises = tasks.map(async (task) => {
             let ownerName = 'Unassigned';
-            let dependencies = [];
+                let ownerId = null;
             
             try {
                 const assignments = await api.getTaskAssignments(task.id);
                 const ownerAssignment = assignments.find(a => a.role === 'owner');
                 if (ownerAssignment) {
+                        ownerId = ownerAssignment.userId;
                     const user = await api.getUser(ownerAssignment.userId);
                     ownerName = user.name;
                 }
@@ -35,216 +57,353 @@ Object.assign(app, {
                 console.error(`Failed to load owner for task ${task.id}:`, error);
             }
             
-            try {
-                dependencies = await api.getDependencies(task.id);
-            } catch (error) {
-                console.error(`Failed to load dependencies for task ${task.id}:`, error);
-            }
+                return { task, ownerName, ownerId };
+            });
             
-            return { task, ownerName, dependencies };
-        });
-        
-        const tasksWithData = await Promise.all(taskDataPromises);
+            const tasksWithData = await Promise.all(taskDataPromises);
 
-        const items = tasksWithData.map(({ task, ownerName, dependencies }) => {
-            const startStr = task.schedule && task.schedule.ls;
-            const finishStr = task.schedule && task.schedule.lf;
-            if (!startStr || !finishStr) return null;
-            const start = new Date(startStr);
-            const finish = new Date(finishStr);
-            if (isNaN(start.getTime()) || isNaN(finish.getTime())) return null;
-            return { task, ownerName, dependencies, start, finish };
-        }).filter(Boolean).sort((a, b) => a.start - b.start || a.finish - b.finish);
+            const hasSchedule = tasksWithData.some(({ task }) => {
+                return task.schedule && task.schedule.ls && task.schedule.lf;
+            });
+
+            if (!hasSchedule) {
+                container.innerHTML = '<p class="text-muted">Schedule not calculated. Click \'Calculate Reverse Schedule\'.</p>';
+                return;
+            }
+
+            const items = tasksWithData
+                .map(({ task, ownerName, ownerId }) => {
+                    const ls = task.schedule && task.schedule.ls;
+                    const lf = task.schedule && task.schedule.lf;
+                    if (!ls || !lf) return null;
+                    
+                    const lsDate = new Date(ls);
+                    const lfDate = new Date(lf);
+                    if (isNaN(lsDate.getTime()) || isNaN(lfDate.getTime())) return null;
+                    
+                    return { 
+                        task, 
+                        ownerName, 
+                        ownerId, 
+                        ls: lsDate, 
+                        lf: lfDate,
+                        isCritical: task.schedule && task.schedule.isCritical,
+                        slack: task.schedule && task.schedule.slack
+                    };
+                })
+                .filter(Boolean);
 
         if (items.length === 0) {
-            container.innerHTML = '<p class="text-muted">No schedule data available</p>';
+                container.innerHTML = '<p class="text-muted">Schedule not calculated. Click \'Calculate Reverse Schedule\'.</p>';
             return;
         }
 
-        const minStart = new Date(Math.min(...items.map(i => i.start.getTime())));
-        const maxFinish = new Date(Math.max(...items.map(i => i.finish.getTime())));
-        const rangeMs = Math.max(1, maxFinish.getTime() - minStart.getTime());
-
-        const daysRange = rangeMs / (1000 * 60 * 60 * 24);
-        let divisionHours = 1;
-        if (daysRange > 7) {
-            divisionHours = 24;
-        } else if (daysRange > 2) {
-            divisionHours = 12;
-        } else if (daysRange > 0.5) {
-            divisionHours = 6;
-        }
-
-        const timeMarkers = [];
-        const divisionMs = divisionHours * 60 * 60 * 1000;
-        let currentTime = new Date(minStart);
-        currentTime.setMinutes(0, 0, 0);
-        
-        const hoursToSubtract = currentTime.getHours() % divisionHours;
-        currentTime.setHours(currentTime.getHours() - hoursToSubtract);
-        
-        while (currentTime <= maxFinish) {
-            const position = ((currentTime.getTime() - minStart.getTime()) / rangeMs) * 100;
-            if (position >= 0 && position <= 100) {
-                timeMarkers.push({ time: new Date(currentTime), position });
-            }
-            currentTime = new Date(currentTime.getTime() + divisionMs);
-        }
-
-        const depTypeColors = {
-            'FS': '#0d6efd',
-            'FF': '#198754',
-            'SS': '#ffc107',
-            'SF': '#dc3545'
-        };
-
-        const dependencyArrows = [];
-        items.forEach((item, itemIndex) => {
-            const { task, dependencies } = item;
-            if (!dependencies || dependencies.length === 0) return;
+            const minTaskTime = new Date(Math.min(...items.map(i => i.ls.getTime())));
+            const minTime = projectStartDate && projectStartDate.getTime() < minTaskTime.getTime()
+                ? projectStartDate
+                : minTaskTime;
             
-            dependencies.forEach(dep => {
-                const isOutgoing = dep.fromTaskId === task.id || dep.from_task_id === task.id;
-                const otherTaskId = isOutgoing ? (dep.toTaskId || dep.to_task_id) : (dep.fromTaskId || dep.from_task_id);
+            const maxTime = new Date(Math.max(...items.map(i => i.lf.getTime())));
+            const gridEnd = projectDueDate && projectDueDate.getTime() > maxTime.getTime()
+                ? projectDueDate 
+                : maxTime;
+            
+            const rangeMs = gridEnd.getTime() - minTime.getTime();
+            const rangeHours = rangeMs / (1000 * 60 * 60);
+            
+            let timeDivisionHours;
+            let pxPerHour; // Пикселей на час
+            
+            if (rangeHours <= 12) {
+                timeDivisionHours = 1;
+                pxPerHour = 60; // 1 hour = 60px
+            } else if (rangeHours <= 48) { // 2 days
+                timeDivisionHours = 6;
+                pxPerHour = 40; // 1 hour = 40px
+            } else if (rangeHours <= 168) { // 7 days
+                timeDivisionHours = 12;
+                pxPerHour = 30; // 1 hour = 30px
+            } else {
+                timeDivisionHours = 24;
+                pxPerHour = 20; // 1 hour = 20px
+            }
+            
+            const pxPerMs = pxPerHour / (1000 * 60 * 60); // Пикселей на миллисекунду
+            const timeDivisionMs = timeDivisionHours * 60 * 60 * 1000;
+
+            const timeToPx = (time) => {
+                return (time.getTime() - minTime.getTime()) * pxPerMs;
+            };
+
+            const timeGrid = [];
+            let currentTime = new Date(minTime);
+            const startHour = currentTime.getHours();
+            const roundedHour = Math.floor(startHour / timeDivisionHours) * timeDivisionHours;
+            currentTime.setHours(roundedHour, 0, 0, 0);
+            
+            while (currentTime <= gridEnd) {
+                timeGrid.push(new Date(currentTime));
+                currentTime = new Date(currentTime.getTime() + timeDivisionMs);
+            }
+            if (timeGrid.length === 0 || timeGrid[timeGrid.length - 1].getTime() < gridEnd.getTime()) {
+                timeGrid.push(new Date(gridEnd));
+            }
+
+            const divisionWidthPx = timeDivisionHours * pxPerHour;
+            const totalGridWidth = timeToPx(gridEnd);
+
+            const rowHeight = 30;
+            const rowGap = 4;
+            const taskRowHeight = rowHeight + rowGap;
+            const totalRows = items.length;
+            const gridHeight = totalRows * taskRowHeight + 20;
+            const headerHeight = 60;
+
+            const now = new Date();
+            const nowPx = timeToPx(now);
+
+            let html = '<div class="gantt-wrapper" style="display: flex; border: 1px solid #dee2e6;">';
+
+            this.ganttTaskListWidth = this.ganttTaskListWidth || 300;
+            const taskListWidth = this.ganttTaskListWidth;
+            html += `<div id="gantt-task-list" class="gantt-task-list" style="width: ${taskListWidth}px; background: #f8f9fa; flex-shrink: 0; display: flex; flex-direction: column; position: relative;">`;
+            html += `<div style="padding: 8px; font-weight: 600; border-bottom: 1px solid #dee2e6; background: white; flex-shrink: 0; height: ${headerHeight}px; display: flex; align-items: center;">Tasks</div>`;
+            html += `<div style="position: relative; height: ${gridHeight}px; overflow-y: auto;">`;
+            
+            items.forEach((item, rowIndex) => {
+                html += `<div class="gantt-task-item" style="position: absolute; top: ${rowIndex * taskRowHeight}px; left: 0; right: 0; height: ${rowHeight}px; padding: 4px 8px; border-bottom: ${rowGap}px solid transparent; cursor: pointer; display: flex; align-items: center;" onclick="app.showTaskDetails('${item.task.id}')">`;
+                html += `<div style="font-weight: 500; font-size: 0.85rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(item.task.name)}</div>`;
+                html += `</div>`;
+            });
+            
+            html += '</div>';
+            html += `<div id="gantt-resizer" class="gantt-resizer" style="position: absolute; right: 0; top: 0; bottom: 0; width: 4px; background: #dee2e6; cursor: col-resize; z-index: 20; border-right: 1px solid #adb5bd;"></div>`;
+            html += '</div>';
+
+            html += `<div id="gantt-grid-wrapper" class="gantt-grid-wrapper" style="flex: 1; overflow-x: auto; position: relative; min-width: 0;">`;
+            
+            html += `<div class="gantt-header" style="position: relative; z-index: 10; background: white; border-bottom: 2px solid #dee2e6; height: ${headerHeight}px; width: ${totalGridWidth}px;">`;
+            html += `<div class="gantt-header-row" style="position: relative; height: 100%;">`;
+            
+            timeGrid.forEach((time, index) => {
+                if (index === timeGrid.length - 1) return;
+                const leftPx = timeToPx(time);
+                const rightPx = timeToPx(timeGrid[index + 1]);
+                const width = Math.max(1, rightPx - leftPx);
+                const timeLabel = this.formatTimeLabel(time, timeDivisionHours);
+                html += `<div style="position: absolute; left: ${leftPx}px; top: 0; width: ${width}px; height: 100%; padding: 8px; text-align: center; border-right: 1px solid #dee2e6; font-size: 0.85rem; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">${this.escapeHtml(timeLabel)}</div>`;
+            });
+            
+            html += '</div>';
+            html += '</div>';
+
+            html += `<div class="gantt-grid-body" style="position: relative; height: ${gridHeight}px; width: ${totalGridWidth}px;">`;
+            
+            if (projectStartDate && projectStartDate.getTime() >= minTime.getTime() && projectStartDate.getTime() <= gridEnd.getTime()) {
+                const startPx = timeToPx(projectStartDate);
+                html += `<div class="gantt-start-line" style="position: absolute; left: ${startPx}px; top: 0; bottom: 0; width: 2px; background: #198754; z-index: 4; pointer-events: none; border-left: 2px solid #198754;"></div>`;
+            }
+            
+            if (projectStartDate && projectStartDate.getTime() >= minTime.getTime()) {
+                const startPx = timeToPx(projectStartDate);
+                const overflowWidth = startPx;
+                if (overflowWidth > 0) {
+                    html += `<div class="gantt-overflow-area" style="position: absolute; left: 0; top: 0; width: ${overflowWidth}px; height: ${gridHeight}px; background: rgba(220, 53, 69, 0.1); z-index: 1; pointer-events: none;"></div>`;
+                }
+            }
+            
+            if (projectDueDate && projectDueDate.getTime() <= gridEnd.getTime()) {
+                const deadlinePx = timeToPx(projectDueDate);
+                html += `<div class="gantt-deadline-line" style="position: absolute; left: ${deadlinePx}px; top: 0; bottom: 0; width: 2px; background: #dc3545; z-index: 4; pointer-events: none; border-left: 2px dashed #dc3545;"></div>`;
+            }
+            
+            if (nowPx >= 0 && nowPx <= totalGridWidth) {
+                html += `<div class="gantt-now-line" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 2px; background: #ffc107; z-index: 5; pointer-events: none;"></div>`;
+            }
+
+            timeGrid.forEach((time, index) => {
+                if (index === timeGrid.length - 1) return;
+                const left = timeToPx(time);
+                html += `<div class="gantt-time-division" style="position: absolute; left: ${left}px; top: 0; width: 1px; height: ${gridHeight}px; border-right: 1px solid #dee2e6; pointer-events: none;"></div>`;
+            });
+
+            items.forEach((item, rowIndex) => {
+                const leftRaw = timeToPx(item.ls);
+                const rightRaw = timeToPx(item.lf);
+                const top = rowIndex * taskRowHeight;
                 
-                const otherItemIndex = items.findIndex(i => 
-                    i.task.id === otherTaskId || i.task.id.toString() === otherTaskId.toString()
-                );
+                const startPx = projectStartDate ? timeToPx(projectStartDate) : null;
+                const isOverflow = projectStartDate && item.ls.getTime() < projectStartDate.getTime();
                 
-                if (otherItemIndex !== -1 && otherItemIndex !== itemIndex) {
-                    const otherItem = items[otherItemIndex];
-                    const fromItem = isOutgoing ? item : otherItem;
-                    const toItem = isOutgoing ? otherItem : item;
+                const clampedRight = Math.min(rightRaw, totalGridWidth);
+                const clampedLeft = Math.max(0, leftRaw); // Обрезаем слева до 0, но визуально показываем overflow
+                const left = clampedLeft;
+                const width = Math.max(2, clampedRight - clampedLeft);
+                
+                const status = (item.task.status || '').toLowerCase();
+                const progress = item.task.progress || 0;
+                const statusLabel = this.humanizeEnum(item.task.status);
+                
+                let borderColor = '#000';
+                let bgColor = '#e9ecef';
+                let fillStyle = 'solid';
+                
+                if (isOverflow) {
+                    borderColor = '#dc3545';
+                }
+                
+                if (status === 'inprogress') {
+                    bgColor = '#0d6efd'; // Blue
+                } else if (status === 'needsreview') {
+                    borderColor = '#fd7e14'; // Orange border
+                    bgColor = '#0dcaf0'; // Blue fill
+                } else if (status === 'accepted') {
+                    borderColor = '#fd7e14'; // Orange border
+                    bgColor = '#198754'; // Green fill
+                } else if (status === 'rejected') {
+                    borderColor = '#fd7e14'; // Orange border
+                    bgColor = '#e9ecef'; // Gray fill
+                    fillStyle = 'striped'; // Striped pattern
+                } else if (status === 'blocked') {
+                    borderColor = '#000'; // Black border
+                    bgColor = progress > 0 ? '#0d6efd' : '#e9ecef'; // Blue if in progress, gray if planned
+                } else if (status === 'done') {
+                    borderColor = '#adb5bd'; // Light gray border
+                    bgColor = '#ffffff'; // White fill
+                }
+                
+                const borderWidth = item.isCritical ? '3px' : '1px';
+                
+                const right = left + width;
+                if (isOverflow && startPx !== null) {
+                    if (left < startPx) {
+                        const overflowWidth = startPx - left;
+                        const normalWidth = right - startPx;
+                        
+                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                        html += `<div class="gantt-task-bar-overflow" style="width: ${overflowWidth}px; height: ${rowHeight}px; background: #dc3545; border: ${borderWidth} solid #dc3545; border-radius: 3px 0 0 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
+                        if (status === 'inprogress' && progress > 0) {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * overflowWidth}px; height: 100%; background: #198754; border-radius: 3px 0 0 3px; z-index: 1;"></div>`;
+                        }
+                        html += `</div>`;
+                        html += `</div>`;
+                        
+                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${startPx}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                        html += `<div class="gantt-task-bar" style="width: ${normalWidth}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 0 3px 3px 0; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
+                        if (status === 'inprogress' && progress > 0) {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * normalWidth}px; height: 100%; background: #198754; border-radius: 0 3px 3px 0; z-index: 1;"></div>`;
+                        }
+                        html += `</div>`;
+                        html += `</div>`;
+                    } else {
+                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                        html += `<div class="gantt-task-bar-overflow" style="width: ${width}px; height: ${rowHeight}px; background: #dc3545; border: ${borderWidth} solid #dc3545; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
+                        if (status === 'inprogress' && progress > 0) {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
+                        }
+                        html += `</div>`;
+                        html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
+                        html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
+                        html += `</div>`;
+                    }
                     
-                    const depType = dep.depType || dep.dep_type || 'FS';
-                    const color = depTypeColors[depType] || '#6c757d';
-                    
-                    const fromX = ((fromItem.finish.getTime() - minStart.getTime()) / rangeMs) * 100;
-                    const toX = ((toItem.start.getTime() - minStart.getTime()) / rangeMs) * 100;
-                    const fromY = isOutgoing ? itemIndex : otherItemIndex;
-                    const toY = isOutgoing ? otherItemIndex : itemIndex;
-                    
-                    dependencyArrows.push({ fromX, toX, fromY, toY, depType, color });
+                    if (left < startPx) {
+                        html += `<div style="position: absolute; left: ${right + 4}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px; pointer-events: none;">`;
+                        html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
+                        html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
+                        html += `</div>`;
+                    }
+                } else {
+                    html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                    html += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
+                    if (status === 'inprogress' && progress > 0) {
+                        html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
+                    }
+                    if (fillStyle === 'striped') {
+                        html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
+                    }
+                    html += `</div>`;
+                    html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
+                    html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
+                    html += `</div>`;
                 }
             });
-        });
 
-        let html = `
-            <div class="row">
-                <div class="col-md-9">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">Gantt Chart</h6>
-                        <div class="small text-muted">${this.formatDate(minStart)} → ${this.formatDate(maxFinish)}</div>
-                    </div>
-                    <div class="gantt-chart" style="position: relative;">
-                        <div class="gantt-time-scale" style="position: relative; height: 30px; border-bottom: 2px solid #dee2e6; margin-bottom: 10px;">`;
+            html += '</div>'; // Конец тела грида
+            html += '</div>'; // Конец обёртки грида
+            html += '</div>'; // Конец всей обёртки
 
-        timeMarkers.forEach(marker => {
-            const label = this.formatTimeScaleLabel(marker.time, divisionHours);
-            html += `
-                <div class="gantt-time-marker" style="position: absolute; left: ${marker.position}%; border-left: 1px solid #adb5bd; height: 100%;">
-                    <div class="gantt-time-label" style="position: absolute; top: 5px; left: 2px; font-size: 10px; color: #6c757d; white-space: nowrap;">
-                        ${this.escapeHtml(label)}
-                    </div>
-                </div>`;
-        });
-
-        html += `</div>
-                        <svg class="gantt-dependencies-layer" style="position: absolute; top: 30px; left: 0; width: 100%; height: calc(100% - 30px); pointer-events: none; z-index: 1;">
-                            <defs>`;
-
-        Object.keys(depTypeColors).forEach(depType => {
-            html += `<marker id="arrowhead-${depType}" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                        <polygon points="0 0, 10 3, 0 6" fill="${depTypeColors[depType]}" />
-                     </marker>`;
-        });
-
-        html += `</defs>`;
-
-        dependencyArrows.forEach(arrow => {
-            const rowHeight = 42, barHeight = 22;
-            const fromY = arrow.fromY * rowHeight + barHeight / 2;
-            const toY = arrow.toY * rowHeight + barHeight / 2;
-            const midX = (arrow.fromX + arrow.toX) / 2;
-            const curveOffset = Math.abs(arrow.toX - arrow.fromX) * 0.3;
-            const controlY = (fromY + toY) / 2;
-            const path = `M ${arrow.fromX} ${fromY} Q ${midX} ${controlY - curveOffset}, ${arrow.toX} ${toY}`;
+            container.innerHTML = html;
             
-            html += `<path d="${path}" stroke="${arrow.color}" stroke-width="2" fill="none" marker-end="url(#arrowhead-${arrow.depType})" opacity="0.7" />
-                     <text x="${midX}" y="${controlY - curveOffset - 8}" font-size="9" fill="${arrow.color}" text-anchor="middle" font-weight="bold">${this.escapeHtml(arrow.depType)}</text>`;
-        });
-
-        html += `</svg>`;
-
-        items.forEach(({ task, ownerName, start, finish }) => {
-            const leftPct = ((start.getTime() - minStart.getTime()) / rangeMs) * 100;
-            const widthPct = Math.max(1.5, ((finish.getTime() - start.getTime()) / rangeMs) * 100);
-            const isCritical = task.schedule && task.schedule.isCritical;
-            const slackSeconds = (task.schedule && task.schedule.slack) || 0;
-            const slackHours = slackSeconds ? Math.round(slackSeconds / 3600) : 0;
-            const tooltip = [
-                `Task: ${task.name}`, `Owner: ${ownerName}`,
-                start ? `Start: ${this.formatDate(start)}` : '',
-                finish ? `Finish: ${this.formatDate(finish)}` : '',
-                slackHours ? `Slack: ${slackHours}h` : '',
-                isCritical ? 'Critical path' : ''
-            ].filter(Boolean).join(' | ');
-
-            html += `
-                <div class="gantt-row" style="position: relative; z-index: 2;">
-                    <div class="gantt-bar ${isCritical ? 'critical' : ''}" style="left:${leftPct}%; width:${widthPct}%" title="${this.escapeHtml(tooltip)}">
-                        <span class="gantt-bar-label">${this.escapeHtml(task.name)} <small class="text-light opacity-75">(${this.escapeHtml(ownerName)})</small></span>
-                    </div>
-                    <div class="gantt-row-caption">
-                        ${this.escapeHtml(this.formatDate(start))} → ${this.escapeHtml(this.formatDate(finish))}
-                        ${isCritical ? '<span class="badge bg-danger ms-2">Critical</span>' : ''}
-                        ${slackHours ? `<span class="badge bg-secondary ms-2">Slack: ${slackHours}h</span>` : ''}
-                    </div>
-                </div>`;
-        });
-
-        html += `</div></div>
-                <div class="col-md-3">
-                    <div class="card">
-                        <div class="card-header"><h6 class="mb-0">Legend</h6></div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <strong>Task Colors:</strong>
-                                <div class="mt-2">
-                                    <div class="d-flex align-items-center mb-2">
-                                        <div class="gantt-bar" style="width: 20px; height: 16px; position: relative; left: 0; margin-right: 8px;"></div>
-                                        <span class="small">Normal Task</span>
-                                    </div>
-                                    <div class="d-flex align-items-center">
-                                        <div class="gantt-bar critical" style="width: 20px; height: 16px; position: relative; left: 0; margin-right: 8px;"></div>
-                                        <span class="small">Critical Path</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <strong>Dependency Types:</strong>
-                                <div class="mt-2">`;
-
-        const depTypeNames = { 'FS': 'Finish-to-Start', 'FF': 'Finish-to-Finish', 'SS': 'Start-to-Start', 'SF': 'Start-to-Finish' };
-        Object.entries(depTypeColors).forEach(([depType, color]) => {
-            html += `<div class="d-flex align-items-center mb-2">
-                        <div style="width: 20px; height: 3px; background: ${color}; margin-right: 8px;"></div>
-                        <span class="small"><strong>${depType}</strong>: ${depTypeNames[depType]}</span>
-                     </div>`;
-        });
-
-        html += `</div></div></div></div></div></div>`;
-        container.innerHTML = html;
+            this.initGanttResizer();
+        } catch (error) {
+            console.error('Error rendering Gantt chart:', error);
+            const container = document.getElementById('gantt-container');
+            if (container) {
+                container.innerHTML = '<p class="text-danger">Error rendering Gantt chart. Check console for details.</p>';
+            }
+        }
     },
 
-    formatTimeScaleLabel(date, divisionHours) {
-        if (divisionHours >= 24) {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } else if (divisionHours >= 12) {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + 
-                   date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    formatUTC(date, opts) {
+        return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...opts }).format(date);
+    },
+
+    formatTimeLabel(date, divisionHours) {
+        if (divisionHours === 1) {
+            // 1 hour: "HH:00" в UTC
+            return this.formatUTC(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+        } else if (divisionHours === 6 || divisionHours === 12) {
+            // 6/12 hours: "DD MMM HH:00" в UTC
+            return this.formatUTC(date, { day: '2-digit', month: 'short' }) + ' ' + 
+                   this.formatUTC(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+        } else {
+            // 24 hours: "DD MMM YYYY" в UTC
+            return this.formatUTC(date, { day: '2-digit', month: 'short', year: 'numeric' });
         }
-        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    },
+
+    initGanttResizer() {
+        const resizer = document.getElementById('gantt-resizer');
+        const taskList = document.getElementById('gantt-task-list');
+        const gridWrapper = document.getElementById('gantt-grid-wrapper');
+        
+        if (!resizer || !taskList || !gridWrapper) return;
+        
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = taskList.offsetWidth;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            const diff = e.clientX - startX;
+            const newWidth = Math.max(150, Math.min(500, startWidth + diff));
+            
+            taskList.style.width = newWidth + 'px';
+        });
+        
+        document.addEventListener('mouseup', async () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                
+                const newWidth = taskList.offsetWidth;
+                this.ganttTaskListWidth = newWidth;
+                
+                const tasks = this.currentProjectTasks || [];
+                await this.renderGanttChart(tasks);
+            }
+        });
     }
 });
-

@@ -380,3 +380,11 @@ body {
 .sort-remove-btn i {
     font-size: 0.9rem;
 }
+
+.gantt-resizer {
+    transition: background-color 0.2s ease;
+}
+
+.gantt-resizer:hover {
+    background: #adb5bd;
+}
