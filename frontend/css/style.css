@@ -347,8 +347,36 @@ body {
 
 .sortable-header {
     transition: background-color 0.15s ease;
+    white-space: nowrap;
+    overflow: visible;
 }
 
 .sortable-header:hover {
     background-color: #f8f9fa;
+}
+
+.sortable-header > div {
+    min-width: 0;
+}
+
+.sortable-header .badge {
+    min-width: 18px;
+    text-align: center;
+    padding: 2px 4px;
+}
+
+.sort-remove-btn {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.sort-remove-btn:hover {
+    opacity: 1;
+}
+
+.sort-remove-btn i {
+    font-size: 0.9rem;
 }

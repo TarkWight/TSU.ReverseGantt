@@ -8,8 +8,7 @@ const app = {
     currentProjectMembers: null,
     currentProjectTasks: null,
     taskFilters: [],
-    taskSortColumn: null,
-    taskSortDirection: 'asc', // 'asc' or 'desc'
+    taskSorts: [], // [{ column: 'type', direction: 'asc', order: 1 }, ...]
 
     init() {
         this.initTemplates();
@@ -599,8 +598,7 @@ const app = {
 
     clearTaskFilters() {
         this.taskFilters = [];
-        this.taskSortColumn = null;
-        this.taskSortDirection = 'asc';
+        this.taskSorts = [];
         this.renderTasksListTab();
     },
 
@@ -633,73 +631,124 @@ const app = {
     },
 
     buildSortableHeader(column, label, width) {
-        const isActive = this.taskSortColumn === column;
-        const icon = isActive 
-            ? (this.taskSortDirection === 'asc' 
+        const sortInfo = this.taskSorts.find(s => s.column === column);
+        const isActive = !!sortInfo;
+        const order = sortInfo ? sortInfo.order : null;
+        const direction = sortInfo ? sortInfo.direction : null;
+        
+        let icon = '<i class="bi bi-arrow-down-up" style="opacity: 0.3;"></i>';
+        let orderBadge = '';
+        let removeBtn = '';
+        
+        if (isActive) {
+            icon = direction === 'asc' 
                 ? '<i class="bi bi-arrow-up"></i>' 
-                : '<i class="bi bi-arrow-down"></i>')
-            : '<i class="bi bi-arrow-down-up" style="opacity: 0.3;"></i>';
+                : '<i class="bi bi-arrow-down"></i>';
+            orderBadge = `<span class="badge bg-primary" style="font-size: 0.65rem; margin-right: 4px;">${order}</span>`;
+            removeBtn = `<span class="sort-remove-btn" onclick="event.stopPropagation(); app.removeTaskSort('${column}')" style="margin-left: 4px; cursor: pointer; color: #dc3545;"><i class="bi bi-x-circle"></i></span>`;
+        }
+        
         const style = width 
             ? `style="width: ${width}px; cursor: pointer; user-select: none;"` 
             : `style="cursor: pointer; user-select: none;"`;
         return `<th ${style} class="sortable-header" onclick="app.setTaskSort('${column}')">
-            <div class="d-flex align-items-center justify-content-between">
-                <span>${label}</span>
-                <span style="margin-left: 4px;">${icon}</span>
+            <div class="d-flex align-items-center justify-content-between" style="gap: 4px;">
+                <span style="flex-shrink: 0;">${label}</span>
+                <div class="d-flex align-items-center" style="flex-shrink: 0; gap: 2px;">
+                    ${orderBadge}
+                    <span style="flex-shrink: 0;">${icon}</span>
+                    ${removeBtn}
+                </div>
             </div>
         </th>`;
     },
 
     setTaskSort(column) {
-        if (this.taskSortColumn === column) {
-            this.taskSortDirection = this.taskSortDirection === 'asc' ? 'desc' : 'asc';
+        const existingIndex = this.taskSorts.findIndex(s => s.column === column);
+        
+        if (existingIndex !== -1) {
+            // Колонка уже в сортировке - переключаем направление
+            this.taskSorts[existingIndex].direction = 
+                this.taskSorts[existingIndex].direction === 'asc' ? 'desc' : 'asc';
         } else {
-            this.taskSortColumn = column;
-            this.taskSortDirection = 'asc';
+            // Добавляем новую колонку в сортировку
+            const maxOrder = this.taskSorts.length > 0 
+                ? Math.max(...this.taskSorts.map(s => s.order)) 
+                : 0;
+            this.taskSorts.push({
+                column: column,
+                direction: 'asc',
+                order: maxOrder + 1
+            });
         }
+        
         this.renderTasksListTab();
     },
 
+    removeTaskSort(column) {
+        const index = this.taskSorts.findIndex(s => s.column === column);
+        if (index !== -1) {
+            const removedOrder = this.taskSorts[index].order;
+            this.taskSorts.splice(index, 1);
+            // Перенумеровываем оставшиеся сортировки
+            this.taskSorts.forEach(s => {
+                if (s.order > removedOrder) {
+                    s.order--;
+                }
+            });
+            this.renderTasksListTab();
+        }
+    },
+
+    getTaskSortValue(taskData, column) {
+        const { task, ownerName } = taskData;
+        switch (column) {
+            case 'type':
+                return (task.taskType || '').toLowerCase();
+            case 'status':
+                return (task.status || '').toLowerCase();
+            case 'priority':
+                const priorityOrder = { 'low': 1, 'normal': 2, 'high': 3, 'critical': 4 };
+                return priorityOrder[(task.priority || '').toLowerCase()] || 0;
+            case 'assignee':
+                return (ownerName || 'Unassigned').toLowerCase();
+            case 'progress':
+                return task.progress || 0;
+            default:
+                return null;
+        }
+    },
+
     applySortToTasks(tasksWithOwners) {
-        if (!this.taskSortColumn) {
+        if (!this.taskSorts || this.taskSorts.length === 0) {
             return tasksWithOwners;
         }
 
-        const sorted = [...tasksWithOwners].sort((a, b) => {
-            let aVal, bVal;
+        // Сортируем по приоритету (order), затем применяем сортировку
+        const sortedSorts = [...this.taskSorts].sort((a, b) => a.order - b.order);
 
-            switch (this.taskSortColumn) {
-                case 'type':
-                    aVal = (a.task.taskType || '').toLowerCase();
-                    bVal = (b.task.taskType || '').toLowerCase();
-                    break;
-                case 'status':
-                    aVal = (a.task.status || '').toLowerCase();
-                    bVal = (b.task.status || '').toLowerCase();
-                    break;
-                case 'priority':
-                    const priorityOrder = { 'low': 1, 'normal': 2, 'high': 3, 'critical': 4 };
-                    aVal = priorityOrder[(a.task.priority || '').toLowerCase()] || 0;
-                    bVal = priorityOrder[(b.task.priority || '').toLowerCase()] || 0;
-                    break;
-                case 'assignee':
-                    aVal = (a.ownerName || 'Unassigned').toLowerCase();
-                    bVal = (b.ownerName || 'Unassigned').toLowerCase();
-                    break;
-                case 'progress':
-                    aVal = a.task.progress || 0;
-                    bVal = b.task.progress || 0;
-                    break;
-                default:
-                    return 0;
+        // Стабильная сортировка: сохраняем исходный индекс для равных значений
+        const tasksWithIndex = tasksWithOwners.map((item, index) => ({ item, originalIndex: index }));
+        
+        const sorted = tasksWithIndex.sort((a, b) => {
+            // Применяем все критерии сортировки по порядку
+            for (const sort of sortedSorts) {
+                const aVal = this.getTaskSortValue(a.item, sort.column);
+                const bVal = this.getTaskSortValue(b.item, sort.column);
+                
+                if (aVal < bVal) {
+                    return sort.direction === 'asc' ? -1 : 1;
+                }
+                if (aVal > bVal) {
+                    return sort.direction === 'asc' ? 1 : -1;
+                }
+                // Если значения равны, используем исходный индекс для стабильности
             }
-
-            if (aVal < bVal) return this.taskSortDirection === 'asc' ? -1 : 1;
-            if (aVal > bVal) return this.taskSortDirection === 'asc' ? 1 : -1;
-            return 0;
+            // Если все критерии равны, сохраняем исходный порядок
+            return a.originalIndex - b.originalIndex;
         });
 
-        return sorted;
+        return sorted.map(entry => entry.item);
     },
 
     buildFilterControlsHtml(ownerOptions) {
@@ -819,12 +868,12 @@ const app = {
             
             html += '<div class="table-responsive"><table class="table table-hover tasks-table">';
             html += '<thead><tr>';
-            html += this.buildSortableHeader('type', 'Type', 80);
-            html += this.buildSortableHeader('status', 'Status', 120);
-            html += this.buildSortableHeader('priority', 'Priority', 100);
+            html += this.buildSortableHeader('type', 'Type', 100);
+            html += this.buildSortableHeader('status', 'Status', 140);
+            html += this.buildSortableHeader('priority', 'Priority', 130);
             html += '<th>Title</th>';
-            html += this.buildSortableHeader('assignee', 'Assignee', 150);
-            html += this.buildSortableHeader('progress', 'Progress', 120);
+            html += this.buildSortableHeader('assignee', 'Assignee', 170);
+            html += this.buildSortableHeader('progress', 'Progress', 140);
             html += '<th style="width: 200px;">Info</th>';
             html += '</tr></thead><tbody>';
             
