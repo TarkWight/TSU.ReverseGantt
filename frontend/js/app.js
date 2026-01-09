@@ -529,13 +529,13 @@ const app = {
 
     getTaskFilterDefinitions() {
         return [
-            { key: 'type', label: 'Тип', options: [
-                { value: 'all', label: 'Все' },
+            { key: 'type', label: 'Type', options: [
+                { value: 'all', label: 'All' },
                 { value: 'task', label: 'Task' },
                 { value: 'feature', label: 'Feature' }
             ]},
-            { key: 'status', label: 'Статус', options: [
-                { value: 'all', label: 'Все' },
+            { key: 'status', label: 'Status', options: [
+                { value: 'all', label: 'All' },
                 { value: 'planned', label: 'Planned' },
                 { value: 'inprogress', label: 'InProgress' },
                 { value: 'needsreview', label: 'NeedsReview' },
@@ -544,18 +544,18 @@ const app = {
                 { value: 'blocked', label: 'Blocked' },
                 { value: 'done', label: 'Done' }
             ]},
-            { key: 'priority', label: 'Приоритет', options: [
-                { value: 'all', label: 'Все' },
+            { key: 'priority', label: 'Priority', options: [
+                { value: 'all', label: 'All' },
                 { value: 'low', label: 'Low' },
                 { value: 'normal', label: 'Normal' },
                 { value: 'high', label: 'High' },
                 { value: 'critical', label: 'Critical' }
             ]},
-            { key: 'owner', label: 'Назначена', options: [] },
-            { key: 'buffer', label: 'Буфер', options: [
-                { value: 'all', label: 'Все' },
-                { value: 'with', label: 'С буфером' },
-                { value: 'without', label: 'Без буфера' }
+            { key: 'owner', label: 'Assignee', options: [] },
+            { key: 'buffer', label: 'Buffer', options: [
+                { value: 'all', label: 'All' },
+                { value: 'with', label: 'With buffer' },
+                { value: 'without', label: 'No buffer' }
             ]}
         ];
     },
@@ -763,8 +763,8 @@ const app = {
             if (f.key === 'owner') {
                 const ownerOpts = ownerOptions.length
                     ? ownerOptions
-                    : [{ value: 'all', label: 'Все' }];
-                options = [{ value: 'all', label: 'Все' }, ...ownerOpts];
+                    : [{ value: 'all', label: 'All' }];
+                options = [{ value: 'all', label: 'All' }, ...ownerOpts];
             }
 
             const selectOptions = options.map(o => {
@@ -787,7 +787,7 @@ const app = {
             `;
         }).join('');
 
-        const addSelectOptions = ['<option value="">Выберите...</option>']
+            const addSelectOptions = ['<option value="">Select...</option>']
             .concat(availableFilters.map(f => `<option value="${f.key}">${this.escapeHtml(f.label)}</option>`))
             .join('');
 
@@ -799,14 +799,14 @@ const app = {
                             onchange="app.addTaskFilterFromSelect(this)">
                             ${addSelectOptions}
                         </select>
-                        <span class="text-muted">добавить фильтр</span>
+                        <span class="text-muted">add filter</span>
                         <div class="ms-auto d-flex gap-2">
-                            <button class="btn btn-primary btn-sm" onclick="app.applyTaskFiltersUI()">Применить</button>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="app.clearTaskFilters()">Очистить</button>
+                            <button class="btn btn-primary btn-sm" onclick="app.applyTaskFiltersUI()">Apply</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="app.clearTaskFilters()">Clear</button>
                         </div>
                     </div>
                     <div class="d-flex flex-wrap gap-2">
-                        ${filterChips || '<span class="text-muted">Фильтры не выбраны</span>'}
+                        ${filterChips || '<span class="text-muted">No filters selected</span>'}
                     </div>
                 </div>
             </div>
