@@ -6,4 +6,5 @@ pub mod tasks;
 pub mod memberships;
 pub mod assignments;
 pub mod notifications;
+pub mod password_reset;
 pub mod export;
