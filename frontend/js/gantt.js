@@ -5,6 +5,9 @@ Object.assign(app, {
         
         let html = '<div class="d-flex justify-content-between align-items-center mb-3">';
         html += '<h5>Gantt Chart</h5>';
+        html += '<button class="btn btn-sm btn-outline-secondary" onclick="app.showGanttLegend()" title="Show legend">';
+        html += '<i class="bi bi-info-circle"></i> Legend';
+        html += '</button>';
         html += '</div>';
         html += '<div id="gantt-container" class="gantt-container"></div>';
         
@@ -194,6 +197,10 @@ Object.assign(app, {
                 html += `<div style="position: absolute; left: ${leftPx}px; top: 0; width: ${width}px; height: 100%; padding: 8px; text-align: center; border-right: 1px solid #dee2e6; font-size: 0.85rem; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">${this.escapeHtml(timeLabel)}</div>`;
             });
             
+            if (nowPx >= 0 && nowPx <= totalGridWidth) {
+                html += `<div class="gantt-now-label" style="position: absolute; left: ${nowPx - 15}px; top: 2px; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; z-index: 11; pointer-events: none; white-space: nowrap;">Now</div>`;
+            }
+            
             html += '</div>';
             html += '</div>';
 
@@ -218,7 +225,7 @@ Object.assign(app, {
             }
             
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
-                html += `<div class="gantt-now-line" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 2px; background: #ffc107; z-index: 5; pointer-events: none;"></div>`;
+                html += `<div class="gantt-now-line" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 3px; background: #ffc107; z-index: 6; pointer-events: none; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);"></div>`;
             }
 
             timeGrid.forEach((time, index) => {
@@ -435,6 +442,117 @@ Object.assign(app, {
                 const tasks = this.currentProjectTasks || [];
                 await this.renderGanttChart(tasks);
             }
+        });
+    },
+
+    showGanttLegend() {
+        const legendHtml = `
+            <div class="modal fade" id="gantt-legend-modal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Gantt Chart Legend</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <h6 class="mb-3">Task Status Colors</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
+                                        <span><strong>Planned</strong> - Gray border, light gray background</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
+                                            <div style="position: absolute; left: 0; top: 0; width: 50%; height: 100%; background: #198754; border-radius: 3px 0 0 3px;"></div>
+                                        </div>
+                                        <span><strong>In Progress</strong> - Gray border, light gray background + green progress bar</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #fd7e14; background: #fefefe; border-radius: 3px; margin-right: 10px; position: relative;">
+                                            <div style="position: absolute; right: 2px; top: 1px; font-size: 0.5rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 2px; border-radius: 2px;">Review</div>
+                                        </div>
+                                        <span><strong>Needs Review</strong> - Orange border, light background + "Review" badge</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #198754; background: #d1e7dd; border-radius: 3px; margin-right: 10px;"></div>
+                                        <span><strong>Accepted</strong> - Green border, very light green background</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #dc3545; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
+                                            <div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 6px); border-radius: 3px;"></div>
+                                        </div>
+                                        <span><strong>Rejected</strong> - Red-orange border, gray background + striped pattern</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #000000; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
+                                            <div style="position: absolute; right: 2px; top: 1px; font-size: 0.5rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 2px; border-radius: 2px;">Blocked</div>
+                                        </div>
+                                        <span><strong>Blocked</strong> - Black border, gray background + "Blocked" badge</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #adb5bd; background: #ffffff; border-radius: 3px; margin-right: 10px;"></div>
+                                        <span><strong>Done</strong> - Light gray border, white background</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Special Indicators</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 3px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
+                                        <span><strong>Critical Path</strong> - Thicker border (3px)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 40px; height: 20px; border: 1px solid #dc3545; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
+                                        <span><strong>Overflow</strong> - Red border (task starts before project start date)</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 3px; height: 30px; background: #ffc107; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8); margin-right: 10px;"></div>
+                                        <span><strong>Current Time</strong> - Yellow vertical line with "Now" label</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 2px; height: 30px; background: #198754; margin-right: 10px;"></div>
+                                        <span><strong>Project Start</strong> - Green vertical line</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div style="width: 2px; height: 30px; background: #dc3545; border-left: 2px dashed #dc3545; margin-right: 10px;"></div>
+                                        <span><strong>Project Deadline</strong> - Red dashed vertical line</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Progress Bar</h6>
+                            <div class="mb-2">
+                                <p class="mb-1">Progress is shown as a green bar (left to right) for <strong>In Progress</strong> and <strong>Blocked</strong> tasks.</p>
+                                <p class="mb-0 text-muted small">The progress bar appears even on overflow (red border) sections, showing actual completion percentage.</p>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const existingModal = document.getElementById('gantt-legend-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        document.body.insertAdjacentHTML('beforeend', legendHtml);
+        
+        const modal = new bootstrap.Modal(document.getElementById('gantt-legend-modal'));
+        modal.show();
+        
+        document.getElementById('gantt-legend-modal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
         });
     }
 });
