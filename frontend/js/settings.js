@@ -34,6 +34,12 @@ Object.assign(app, {
             this.showToast('Failed to save settings', 'error', error);
             console.error('Error saving settings:', error);
         }
+    },
+
+    async showChangePasswordInSettings() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('settings-modal'));
+        if (modal) modal.hide();
+        await this.showChangePasswordModal();
     }
 });
 

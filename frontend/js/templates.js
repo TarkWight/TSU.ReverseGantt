@@ -76,10 +76,105 @@ const templates = {
                                 </button>
                             </div>
                             <div class="text-center mt-3">
+                                <a href="#" onclick="app.showForgotPassword(); return false;">Forgot password?</a>
+                            </div>
+                            <div class="text-center mt-2">
                                 <a href="#" onclick="app.showRegister(); return false;">Don't have an account? Register</a>
                             </div>
                         </form>
                         <div id="login-error" class="alert alert-danger mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `,
+
+    forgotPasswordPage: `
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <h2 class="card-title text-center mb-4">
+                            <i class="bi bi-key"></i> Forgot Password
+                        </h2>
+                        <div id="forgot-password-step-1">
+                            <p class="text-muted">Enter your email address to receive a password reset code.</p>
+                            <form id="forgot-password-form">
+                                <div class="mb-3">
+                                    <label for="forgot-email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="forgot-email" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-envelope"></i> Send Reset Code
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="text-center mt-3">
+                                <a href="#" onclick="app.showNoEmailAccess(); return false;">No access to email?</a>
+                            </div>
+                            <div class="text-center mt-2">
+                                <a href="#" onclick="app.showLogin(); return false;">Back to Login</a>
+                            </div>
+                        </div>
+                        <div id="forgot-password-step-2" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> Check your email for the 6-digit verification code. It expires in 15 minutes.
+                            </div>
+                            <form id="confirm-reset-form">
+                                <div class="mb-3">
+                                    <label for="reset-code" class="form-label">6-Digit Code</label>
+                                    <input type="text" class="form-control" id="reset-code" maxlength="6" pattern="[0-9]{6}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new-password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new-password" required>
+                                    <div class="form-text">Must be at least 8 characters with uppercase, lowercase, digit, and special character</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new-password-confirm" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="new-password-confirm" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-circle"></i> Reset Password
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="text-center mt-3">
+                                <a href="#" onclick="app.showForgotPassword(); return false;">Back</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `,
+
+    noEmailAccessPage: `
+        <div class="row justify-content-center">
+            <div class="col-md-5">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <h2 class="card-title text-center mb-4">
+                            <i class="bi bi-person-check"></i> No Email Access
+                        </h2>
+                        <p class="text-muted">If you don't have access to your email, you can request a password reset from a teacher.</p>
+                        <p class="text-muted">Enter your email address below to send a request to teachers for approval.</p>
+                        <form id="no-email-access-form">
+                            <div class="mb-3">
+                                <label for="no-email-email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="no-email-email" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="bi bi-send"></i> Request Teacher Approval
+                                </button>
+                            </div>
+                        </form>
+                        <div class="text-center mt-3">
+                            <a href="#" onclick="app.showLogin(); return false;">Back to Login</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -182,6 +277,9 @@ const templates = {
     teachersPage: `
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2><i class="bi bi-person-badge"></i> Teachers Panel</h2>
+            <button class="btn btn-outline-primary" onclick="app.showTeacherPasswordResetRequests();">
+                <i class="bi bi-key-fill"></i> Password Reset Requests
+            </button>
         </div>
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0"><i class="bi bi-diagram-3"></i> Reverse Schedule</h5></div>
@@ -461,6 +559,13 @@ const templates = {
                                     <input class="form-check-input" type="checkbox" id="email-notifications-toggle">
                                     <label class="form-check-label" for="email-notifications-toggle">Enable email notifications</label>
                                 </div>
+                            </div>
+                            <hr>
+                            <div class="mb-3">
+                                <h6><i class="bi bi-key"></i> Password</h6>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="app.showChangePasswordInSettings();">
+                                    <i class="bi bi-key"></i> Change Password
+                                </button>
                             </div>
                         </div>
                         <div class="modal-footer">
