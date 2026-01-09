@@ -13,6 +13,7 @@ pub trait UserRepository: Send + Sync {
     async fn insert(&self, user: &User, password_hash: &str) -> anyhow::Result<()>;
     async fn update_global_role(&self, id: Id, role: GlobalRole) -> anyhow::Result<bool>;
     async fn update_email_notifications(&self, id: Id, enabled: bool) -> anyhow::Result<bool>;
+    async fn update_password(&self, id: Id, password_hash: &str) -> anyhow::Result<bool>;
 }
 
 pub struct PgUserRepository {
@@ -145,6 +146,19 @@ impl UserRepository for PgUserRepository {
             .execute(&self.pool)
             .await
             .context("Failed to update email notifications")?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn update_password(&self, id: Id, password_hash: &str) -> anyhow::Result<bool> {
+        let result = sqlx::query!(
+            "UPDATE users SET password_hash = $2 WHERE id = $1",
+            id,
+            password_hash
+        )
+            .execute(&self.pool)
+            .await
+            .context("Failed to update password")?;
 
         Ok(result.rows_affected() > 0)
     }
