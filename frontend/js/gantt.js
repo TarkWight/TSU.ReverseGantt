@@ -134,15 +134,17 @@ Object.assign(app, {
             const pxPerMs = pxPerHour / (1000 * 60 * 60); // Пикселей на миллисекунду
             const timeDivisionMs = timeDivisionHours * 60 * 60 * 1000;
 
+            const gridStart = new Date(minTime);
+            const startHour = gridStart.getHours();
+            const roundedHour = Math.floor(startHour / timeDivisionHours) * timeDivisionHours;
+            gridStart.setHours(roundedHour, 0, 0, 0);
+
             const timeToPx = (time) => {
-                return (time.getTime() - minTime.getTime()) * pxPerMs;
+                return (time.getTime() - gridStart.getTime()) * pxPerMs;
             };
 
             const timeGrid = [];
-            let currentTime = new Date(minTime);
-            const startHour = currentTime.getHours();
-            const roundedHour = Math.floor(startHour / timeDivisionHours) * timeDivisionHours;
-            currentTime.setHours(roundedHour, 0, 0, 0);
+            let currentTime = new Date(gridStart);
             
             while (currentTime <= gridEnd) {
                 timeGrid.push(new Date(currentTime));
@@ -198,7 +200,9 @@ Object.assign(app, {
             });
             
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
-                html += `<div class="gantt-now-label" style="position: absolute; left: ${nowPx - 15}px; top: 2px; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; z-index: 11; pointer-events: none; white-space: nowrap;">Now</div>`;
+                const nowLabel = `Now ${this.formatLocal(now, { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                html += `<div class="gantt-now-line-header" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 3px; background: #ffc107; z-index: 12; pointer-events: none; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);"></div>`;
+                html += `<div class="gantt-now-label" style="position: absolute; left: ${Math.max(0, nowPx - 35)}px; top: 2px; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 700; z-index: 13; pointer-events: none; white-space: nowrap;">${this.escapeHtml(nowLabel)}</div>`;
             }
             
             html += '</div>';
@@ -292,79 +296,21 @@ Object.assign(app, {
                 const borderWidth = item.isCritical ? '3px' : '1px';
                 
                 const right = left + width;
-                if (isOverflow && startPx !== null) {
-                    if (left < startPx) {
-                        const overflowWidth = startPx - left;
-                        const normalWidth = right - startPx;
-                        
-                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                        html += `<div class="gantt-task-bar-overflow" style="width: ${overflowWidth}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid #dc3545; border-radius: 3px 0 0 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
-                        if (showProgress && progress > 0) {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * overflowWidth}px; height: 100%; background: #198754; border-radius: 3px 0 0 3px; z-index: 1;"></div>`;
-                        }
-                        if (fillStyle === 'striped') {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px 0 0 3px; z-index: 2;"></div>`;
-                        }
-                        if (badgeText) {
-                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
-                        }
-                        html += `</div>`;
-                        html += `</div>`;
-                        
-                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${startPx}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                        html += `<div class="gantt-task-bar" style="width: ${normalWidth}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 0 3px 3px 0; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
-                        if (showProgress && progress > 0) {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * normalWidth}px; height: 100%; background: #198754; border-radius: 0 3px 3px 0; z-index: 1;"></div>`;
-                        }
-                        if (fillStyle === 'striped') {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 0 3px 3px 0; z-index: 2;"></div>`;
-                        }
-                        if (badgeText) {
-                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
-                        }
-                        html += `</div>`;
-                        html += `</div>`;
-                    } else {
-                        html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                        html += `<div class="gantt-task-bar-overflow" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid #dc3545; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
-                        if (showProgress && progress > 0) {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
-                        }
-                        if (fillStyle === 'striped') {
-                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
-                        }
-                        if (badgeText) {
-                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
-                        }
-                        html += `</div>`;
-                        html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
-                        html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
-                        html += `</div>`;
-                    }
-                    
-                    if (left < startPx) {
-                        html += `<div style="position: absolute; left: ${right + 4}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px; pointer-events: none;">`;
-                        html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
-                        html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
-                        html += `</div>`;
-                    }
-                } else {
-                    html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                    html += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
-                    if (showProgress && progress > 0) {
-                        html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
-                    }
-                    if (fillStyle === 'striped') {
-                        html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
-                    }
-                    if (badgeText) {
-                        html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
-                    }
-                    html += `</div>`;
-                    html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
-                    html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
-                    html += `</div>`;
+                html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                html += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}${isOverflow ? ' (Overflow)' : ''}">`;
+                if (showProgress && progress > 0) {
+                    html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
                 }
+                if (fillStyle === 'striped') {
+                    html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
+                }
+                if (badgeText) {
+                    html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
+                }
+                html += `</div>`;
+                html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
+                html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
+                html += `</div>`;
             });
 
             html += '</div>'; // Конец тела грида
@@ -383,21 +329,18 @@ Object.assign(app, {
         }
     },
 
-    formatUTC(date, opts) {
-        return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...opts }).format(date);
+    formatLocal(date, opts) {
+        return new Intl.DateTimeFormat('en-GB', { ...opts }).format(date);
     },
 
     formatTimeLabel(date, divisionHours) {
         if (divisionHours === 1) {
-            // 1 hour: "HH:00" в UTC
-            return this.formatUTC(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+            return this.formatLocal(date, { hour: '2-digit', minute: '2-digit', hour12: false });
         } else if (divisionHours === 6 || divisionHours === 12) {
-            // 6/12 hours: "DD MMM HH:00" в UTC
-            return this.formatUTC(date, { day: '2-digit', month: 'short' }) + ' ' + 
-                   this.formatUTC(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+            return this.formatLocal(date, { day: '2-digit', month: 'short' }) + ' ' +
+                   this.formatLocal(date, { hour: '2-digit', minute: '2-digit', hour12: false });
         } else {
-            // 24 hours: "DD MMM YYYY" в UTC
-            return this.formatUTC(date, { day: '2-digit', month: 'short', year: 'numeric' });
+            return this.formatLocal(date, { day: '2-digit', month: 'short', year: 'numeric' });
         }
     },
 
