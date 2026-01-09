@@ -492,7 +492,7 @@ const templates = {
                                 <div id="task-form-owner-group" class="mb-3">
                                     <label for="task-form-owner-id" class="form-label">Owner (Student) *</label>
                                     <select class="form-select" id="task-form-owner-id"></select>
-                                    <div class="form-text">Teacher must specify a task owner</div>
+                                    <div class="form-text">Teacher or project leader must specify a task owner</div>
                                 </div>
                             </form>
                         </div>

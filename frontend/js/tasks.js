@@ -13,7 +13,7 @@ Object.assign(app, {
         await this.populateParentTaskDropdown();
         
         const ownerGroup = document.getElementById('task-form-owner-group');
-        if (auth.isTeacher()) {
+        if (auth.isTeacher() || app.isProjectLeader()) {
             ownerGroup.style.display = 'block';
             document.getElementById('task-form-owner-id').required = true;
             
@@ -104,7 +104,26 @@ Object.assign(app, {
             document.getElementById('task-form-task-type').required = false;
             document.getElementById('task-form-priority').required = false;
             
-            document.getElementById('task-form-owner-group').style.display = 'none';
+            const ownerGroup = document.getElementById('task-form-owner-group');
+            if (auth.isTeacher() || app.isProjectLeader()) {
+                ownerGroup.style.display = 'block';
+                document.getElementById('task-form-owner-id').required = true;
+                
+                await this.populateOwnerDropdown();
+                
+                try {
+                    const assignments = await api.getTaskAssignments(task.id);
+                    const ownerAssignment = assignments.find(a => a.role === 'owner');
+                    if (ownerAssignment) {
+                        document.getElementById('task-form-owner-id').value = ownerAssignment.userId;
+                    }
+                } catch (error) {
+                    console.error('Failed to load current owner:', error);
+                }
+            } else {
+                ownerGroup.style.display = 'none';
+                document.getElementById('task-form-owner-id').required = false;
+            }
             
             const hardnessGroup = document.getElementById('task-form-hardness-group');
             if (auth.isTeacher() || app.isProjectLeader()) {
@@ -156,6 +175,33 @@ Object.assign(app, {
             try {
                 console.debug('[tasks] update payload', task);
                 await api.updateTask(id, task);
+                
+                if (auth.isTeacher() || app.isProjectLeader()) {
+                    const newOwnerId = document.getElementById('task-form-owner-id').value;
+                    if (newOwnerId) {
+                        try {
+                            const assignments = await api.getTaskAssignments(id);
+                            const currentOwner = assignments.find(a => a.role === 'owner');
+                            
+                            if (!currentOwner || currentOwner.userId !== newOwnerId) {
+                                if (currentOwner) {
+                                    await api.deleteAssignment(currentOwner.id);
+                                }
+                                
+                                await api.createAssignment(id, {
+                                    userId: newOwnerId,
+                                    role: 'owner'
+                                });
+                                
+                                console.log(`[tasks] Owner updated: ${currentOwner?.userId} -> ${newOwnerId}`);
+                            }
+                        } catch (error) {
+                            console.error('Failed to update task owner:', error);
+                            app.showToast('Task updated but failed to change owner', 'warning');
+                        }
+                    }
+                }
+                
                 app.showToast('Task updated successfully', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('task-modal')).hide();
                 app.showTaskDetails(id);
@@ -182,7 +228,7 @@ Object.assign(app, {
                 parentTaskId: document.getElementById('task-form-parent-task-id').value || null,
             };
 
-            if (auth.isTeacher()) {
+            if (auth.isTeacher() || app.isProjectLeader()) {
                 const ownerId = document.getElementById('task-form-owner-id').value;
                 if (!ownerId) {
                     app.showToast('Please specify a task owner', 'error');
