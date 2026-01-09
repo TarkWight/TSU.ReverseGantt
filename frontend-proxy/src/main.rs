@@ -53,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/assignments/{*path}", axum::routing::any(proxy_handler))
         .route("/export/{*path}", axum::routing::any(proxy_handler))
         .route("/notifications/{*path}", axum::routing::any(proxy_handler))
+        .route("/password-reset/{*path}", axum::routing::any(proxy_handler))
         .fallback_service(
             ServeDir::new(&static_dir)
                 .precompressed_gzip()

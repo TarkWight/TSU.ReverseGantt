@@ -7,11 +7,11 @@ use crate::infra::repositories::{
     PgProjectRepository, PgMembershipRepository, PgUserRepository,
     PgTaskRepository, PgAssignmentRepository, PgDependencyRepository,
     PgReviewRepository, PgArtifactRepository, PgNotificationRepository,
-    PgScheduleRepository,
+    PgPasswordResetRepository, PgScheduleRepository,
     ProjectRepository, MembershipRepository, UserRepository,
     TaskRepository, AssignmentRepository, DependencyRepository,
     ReviewRepository, ArtifactRepository, NotificationRepository,
-    ScheduleRepository,
+    PasswordResetRepository, ScheduleRepository,
 };
 use crate::services::{
     ProjectService, ProjectServiceImpl,
@@ -24,6 +24,7 @@ use crate::services::{
     AssignmentService, AssignmentServiceImpl,
     ArtifactService, ArtifactServiceImpl,
     NotificationService, NotificationServiceImpl,
+    PasswordResetService, PasswordResetServiceImpl,
 };
 
 #[derive(Clone)]
@@ -38,6 +39,7 @@ pub struct AppState {
     pub assignment_service: Arc<dyn AssignmentService>,
     pub artifact_service: Arc<dyn ArtifactService>,
     pub notification_service: Arc<dyn NotificationService>,
+    pub password_reset_service: Arc<dyn PasswordResetService>,
     pub email_service: Arc<SmtpService>,
 }
 
@@ -55,6 +57,7 @@ impl AppState {
         let review_repo: Arc<dyn ReviewRepository> = Arc::new(PgReviewRepository::new(pool.clone()));
         let artifact_repo: Arc<dyn ArtifactRepository> = Arc::new(PgArtifactRepository::new(pool.clone()));
         let notification_repo: Arc<dyn NotificationRepository> = Arc::new(PgNotificationRepository::new(pool.clone()));
+        let password_reset_repo: Arc<dyn PasswordResetRepository> = Arc::new(PgPasswordResetRepository::new(pool.clone()));
         let schedule_repo: Arc<dyn ScheduleRepository> = Arc::new(PgScheduleRepository::new(pool.clone()));
 
         // Email service
@@ -68,6 +71,12 @@ impl AppState {
         let review_service: Arc<dyn ReviewService> = Arc::new(ReviewServiceImpl::new(review_repo.clone()));
         let artifact_service: Arc<dyn ArtifactService> = Arc::new(ArtifactServiceImpl::new(artifact_repo.clone()));
         let notification_service: Arc<dyn NotificationService> = Arc::new(NotificationServiceImpl::new(notification_repo.clone()));
+        let password_reset_service: Arc<dyn PasswordResetService> = Arc::new(PasswordResetServiceImpl::new(
+            password_reset_repo.clone(),
+            user_repo.clone(),
+            notification_repo.clone(),
+            email_service.clone(),
+        ));
         let schedule_service: Arc<dyn ScheduleService> = Arc::new(ScheduleServiceImpl::new(schedule_repo.clone()));
 
         let project_service: Arc<dyn ProjectService> = Arc::new(ProjectServiceImpl::new(
@@ -97,6 +106,7 @@ impl AppState {
             assignment_service,
             artifact_service,
             notification_service,
+            password_reset_service,
             email_service,
         })
     }

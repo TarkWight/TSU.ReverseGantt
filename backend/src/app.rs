@@ -14,6 +14,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(routes::memberships::router(state.clone()))
         .merge(routes::assignments::router(state.clone()))
         .merge(routes::notifications::router(state.clone()))
+        .merge(routes::password_reset::router(state.clone()))
         .merge(routes::export::router(state.clone()))
         .layer(CorsLayer::permissive())
 }

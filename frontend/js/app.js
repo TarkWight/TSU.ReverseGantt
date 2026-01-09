@@ -36,21 +36,35 @@ const app = {
     },
 
     initEventListeners() {
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            await auth.login(email, password);
-        });
+        // Attach event listeners for static forms
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                await auth.login(email, password);
+            });
+        }
 
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('register-email').value;
-            const name = document.getElementById('register-name').value;
-            const password = document.getElementById('register-password').value;
-            const passwordConfirm = document.getElementById('register-password-confirm').value;
-            await auth.register(email, name, password, passwordConfirm);
-        });
+        const registerForm = document.getElementById('register-form');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('register-email').value;
+                const name = document.getElementById('register-name').value;
+                const password = document.getElementById('register-password').value;
+                const passwordConfirm = document.getElementById('register-password-confirm').value;
+                await auth.register(email, name, password, passwordConfirm);
+            });
+        }
+        
+        // Initialize password toggles for initial forms
+        setTimeout(() => {
+            this.initPasswordToggle('login-password');
+            this.initPasswordToggle('register-password');
+            this.initPasswordToggle('register-password-confirm');
+        }, 100);
     },
 
     setUserInfo(userId, globalRole, userName) {
@@ -80,27 +94,73 @@ const app = {
     },
 
     hideAllPages() {
-        document.getElementById('login-page').style.display = 'none';
-        document.getElementById('register-page').style.display = 'none';
-        document.getElementById('projects-page').style.display = 'none';
-        document.getElementById('project-details-page').style.display = 'none';
-        document.getElementById('task-details-page').style.display = 'none';
-        document.getElementById('teachers-page').style.display = 'none';
+        const pages = [
+            'login-page', 'register-page', 'projects-page', 
+            'project-details-page', 'task-details-page', 'teachers-page'
+        ];
+        pages.forEach(pageId => {
+            const page = document.getElementById(pageId);
+            if (page) {
+                page.style.display = 'none';
+            }
+        });
     },
 
     showLogin() {
         this.hideAllPages();
         document.getElementById('login-page').style.display = 'block';
         document.getElementById('main-nav').style.display = 'none';
-        document.getElementById('login-error').style.display = 'none';
+        if (document.getElementById('login-error')) {
+            document.getElementById('login-error').style.display = 'none';
+        }
         notifications.stopPolling();
+        
+        // Initialize password toggle and form handler
+        setTimeout(() => {
+            this.initPasswordToggle('login-password');
+            
+            // Attach form submit handler
+            const loginForm = document.getElementById('login-form');
+            if (loginForm && !loginForm.dataset.handlerAttached) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('login-email').value;
+                    const password = document.getElementById('login-password').value;
+                    await auth.login(email, password);
+                });
+                loginForm.dataset.handlerAttached = 'true';
+            }
+        }, 10);
     },
 
     showRegister() {
         this.hideAllPages();
         document.getElementById('register-page').style.display = 'block';
         document.getElementById('main-nav').style.display = 'none';
-        document.getElementById('register-error').style.display = 'none';
+        if (document.getElementById('register-error')) {
+            document.getElementById('register-error').style.display = 'none';
+        }
+        notifications.stopPolling();
+        
+        // Initialize password toggles and form handler
+        setTimeout(() => {
+            this.initPasswordToggle('register-password');
+            this.initPasswordToggle('register-password-confirm');
+            
+            // Attach form submit handler
+            const registerForm = document.getElementById('register-form');
+            if (registerForm && !registerForm.dataset.handlerAttached) {
+                registerForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('register-email').value;
+                    const name = document.getElementById('register-name').value;
+                    const password = document.getElementById('register-password').value;
+                    const passwordConfirm = document.getElementById('register-password-confirm').value;
+                    await auth.register(email, name, password, passwordConfirm);
+                });
+                registerForm.dataset.handlerAttached = 'true';
+            }
+        }, 10);
     },
 
     async showProjects() {

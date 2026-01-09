@@ -44,9 +44,14 @@ Object.assign(app, {
                             <strong>${this.escapeHtml(user.name)}</strong>
                             <div class="text-muted small">${this.escapeHtml(user.email)}</div>
                         </div>
-                        <button class="btn btn-sm btn-warning" onclick="app.promoteToTeacher('${user.id}')">
-                            <i class="bi bi-star"></i> Promote to Teacher
-                        </button>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary me-2" onclick="app.showTeacherSetStudentPassword('${user.id}', '${this.escapeHtml(user.name)}');" title="Set Password">
+                                <i class="bi bi-key"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="app.promoteToTeacher('${user.id}')">
+                                <i class="bi bi-star"></i> Promote to Teacher
+                            </button>
+                        </div>
                     </div>`;
             });
             html += '</div>';

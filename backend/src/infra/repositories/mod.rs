@@ -7,6 +7,7 @@ pub mod dependency_repo;
 pub mod review_repo;
 pub mod artifact_repo;
 pub mod notification_repo;
+pub mod password_reset_repo;
 pub mod schedule_repo;
 
 pub use project_repo::{ProjectRepository, PgProjectRepository};
@@ -18,4 +19,5 @@ pub use dependency_repo::{DependencyRepository, PgDependencyRepository};
 pub use review_repo::{ReviewRepository, PgReviewRepository};
 pub use artifact_repo::{ArtifactRepository, PgArtifactRepository};
 pub use notification_repo::{NotificationRepository, PgNotificationRepository};
+pub use password_reset_repo::{PasswordResetRepository, PgPasswordResetRepository};
 pub use schedule_repo::{ScheduleRepository, PgScheduleRepository};

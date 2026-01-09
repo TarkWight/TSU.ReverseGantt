@@ -77,6 +77,30 @@ impl SmtpService {
         self.send_email(to_email, to_name, &subject, &body).await
     }
 
+    pub async fn send_password_reset_code(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        code: &str,
+    ) -> anyhow::Result<()> {
+        if !self.is_configured() {
+            tracing::warn!("SMTP not configured, skipping password reset email. Code: {}", code);
+            return Ok(());
+        }
+
+        let subject = "Password Reset Code - Reverse Gantt";
+        let body = format!(
+            "Hello {}!\n\nYou requested a password reset for your Reverse Gantt account.\n\n\
+            Your verification code is: {}\n\n\
+            This code will expire in 15 minutes.\n\n\
+            If you didn't request this reset, please ignore this email.\n\n\
+            Best regards,\nReverse Gantt System",
+            to_name, code
+        );
+
+        self.send_email(to_email, to_name, subject, &body).await
+    }
+
     pub async fn send_email(
         &self,
         to_email: &str,

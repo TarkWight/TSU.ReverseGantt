@@ -1,5 +1,6 @@
 pub mod projects;
 pub mod tasks;
+pub mod password_reset;
 pub mod users;
 pub mod artifacts;
 pub mod assignments;

@@ -322,5 +322,64 @@ const api = {
             body: body ? JSON.stringify(body) : undefined,
         });
     },
+
+    // Password Reset
+    async requestPasswordReset(email) {
+        return this.request('/password-reset/request', { 
+            method: 'POST', 
+            body: JSON.stringify({ email }) 
+        });
+    },
+
+    async confirmPasswordReset(email, code, newPassword) {
+        console.log('[API] Sending password reset confirmation:', { 
+            email, 
+            codeLength: code.length, 
+            passwordLength: newPassword.length 
+        });
+        return this.request('/password-reset/confirm', { 
+            method: 'POST', 
+            body: JSON.stringify({ email, code, newPassword }) 
+        });
+    },
+
+    async changePassword(oldPassword, newPassword) {
+        return this.request('/password-reset/change', { 
+            method: 'PATCH', 
+            body: JSON.stringify({ oldPassword, newPassword }) 
+        });
+    },
+
+    async requestPasswordResetViaTeacher(email) {
+        return this.request('/password-reset/request-teacher', { 
+            method: 'POST', 
+            body: JSON.stringify({ email }) 
+        });
+    },
+
+    async getTeacherPasswordResetRequests() {
+        return this.request('/password-reset/teacher/requests', { method: 'GET' });
+    },
+
+    async teacherApprovePasswordReset(requestId, newPassword, notes) {
+        return this.request(`/password-reset/teacher/requests/${requestId}/approve`, { 
+            method: 'POST', 
+            body: JSON.stringify({ newPassword, notes }) 
+        });
+    },
+
+    async teacherRejectPasswordReset(requestId, reason) {
+        return this.request(`/password-reset/teacher/requests/${requestId}/reject`, { 
+            method: 'POST', 
+            body: JSON.stringify({ reason }) 
+        });
+    },
+
+    async teacherSetStudentPassword(studentId, newPassword) {
+        return this.request(`/password-reset/teacher/students/${studentId}/set-password`, { 
+            method: 'POST', 
+            body: JSON.stringify({ newPassword }) 
+        });
+    },
 };
 
