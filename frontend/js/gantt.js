@@ -169,8 +169,9 @@ Object.assign(app, {
             const divisionWidthPx = timeDivisionHours * pxPerHour;
             const totalGridWidth = timeToPx(gridEnd);
 
-            const rowHeight = 30;
-            const rowGap = 4;
+            // Row sizing: give more vertical room for dependency arrows (they route through the row gaps)
+            const rowHeight = 34;
+            const rowGap = 14;
             const taskRowHeight = rowHeight + rowGap;
             const totalRows = items.length;
             const gridHeight = totalRows * taskRowHeight + 20;
@@ -251,7 +252,7 @@ Object.assign(app, {
             });
 
             // First pass: compute bar geometry + render task bars; keep positions for dependency routing
-            const barPos = new Map(); // taskId -> { left, right, midY }
+            const barPos = new Map(); // taskId -> { left, right, top, bottom, midY, rowIndex }
             let taskBarsHtml = '';
 
             items.forEach((item, rowIndex) => {
@@ -267,7 +268,14 @@ Object.assign(app, {
                 const width = Math.max(2, clampedRight - clampedLeft);
                 const right = left + width;
 
-                barPos.set(item.task.id, { left, right, midY: top + (rowHeight / 2) });
+                barPos.set(item.task.id, {
+                    left,
+                    right,
+                    top,
+                    bottom: top + rowHeight,
+                    midY: top + (rowHeight / 2),
+                    rowIndex
+                });
                 
                 const status = (item.task.status || '').toLowerCase();
                 const progress = item.task.progress || 0;
@@ -344,6 +352,12 @@ Object.assign(app, {
                 const getFromId = (dep) => dep.fromTaskId || dep.from_task_id;
                 const getToId = (dep) => dep.toTaskId || dep.to_task_id;
 
+                // Lane allocation to reduce overlaps: we offset the vertical trunk in X (not Y)
+                const laneByKey = new Map();
+                const laneCount = 8;
+                const laneStepX = 10; // px separation between parallel vertical trunks
+                let laneCursor = 0;
+
                 allDeps.forEach(dep => {
                     const fromId = getFromId(dep);
                     const toId = getToId(dep);
@@ -352,27 +366,78 @@ Object.assign(app, {
                     const to = barPos.get(toId);
                     if (!from || !to) return;
 
-                    // Anchor points depend on relative position (supports both left and right arrows)
-                    const fromCenterX = (from.left + from.right) / 2;
-                    const toCenterX = (to.left + to.right) / 2;
-                    const isRight = toCenterX >= fromCenterX;
+                    const depType = (dep.depType || dep.dep_type || 'FS').toUpperCase();
 
-                    const x1 = isRight ? from.right : from.left;
-                    const y1 = from.midY;
-                    const x4 = isRight ? to.left : to.right;
-                    const y4 = to.midY;
+                    // Map dependency type to which edge to connect:
+                    // S = left edge, F = right edge
+                    const fromSide = depType[0] === 'F' ? 'right' : 'left';
+                    const toSide = depType[1] === 'F' ? 'right' : 'left';
+                    const sameSide = fromSide === toSide; // L->L or R->R => GVG, otherwise GVGVG
 
-                    // Orthogonal path: horiz -> vert -> horiz
-                    let x2 = (x1 + x4) / 2;
-                    // keep a minimum clearance so we don't hug the bars too closely
-                    const minOffset = 18;
-                    if (isRight) {
-                        x2 = Math.max(x1 + minOffset, Math.min(x2, x4 - minOffset));
+                    // Lane selection (deterministic per edge)
+                    const key = `${fromId}->${toId}`;
+                    if (!laneByKey.has(key)) {
+                        laneByKey.set(key, laneCursor % laneCount);
+                        laneCursor += 1;
+                    }
+                    const lane = laneByKey.get(key);
+                    const laneOffsetX = (lane - Math.floor(laneCount / 2)) * laneStepX;
+
+                    // Exit/entry Y in the row gaps to avoid drawing over bars or their labels.
+                    const gap = rowGap / 2;
+                    const goingDown = to.rowIndex > from.rowIndex;
+                    const fromGapY = goingDown ? (from.bottom + gap) : (from.top - gap);
+                    // We always "dock" into the target at its midY (clean entry point).
+                    // This keeps the arrowhead aligned and avoids crooked-looking joins.
+                    const toEntryY = to.midY;
+
+                    // Anchor at the selected bar edges (touch bar at midY)
+                    const fromEdgeX = fromSide === 'right' ? from.right : from.left;
+                    const toEdgeX = toSide === 'right' ? to.right : to.left;
+                    const fromDir = fromSide === 'right' ? 1 : -1; // outward direction from source edge
+
+                    // Trunk X: outside both bars, plus lane offset, so the vertical segment stays in free space.
+                    // Note: arrows are visual; they may go beyond the project (grid) bounds.
+                    const baseTrunkPad = 24;
+                    let trunkX;
+                    if (fromSide === 'right') {
+                        const rightMost = Math.max(from.right, to.right);
+                        // spread lanes outward (to the right) so they don't drift toward bars
+                        trunkX = rightMost + baseTrunkPad + Math.abs(laneOffsetX);
                     } else {
-                        x2 = Math.min(x1 - minOffset, Math.max(x2, x4 + minOffset));
+                        const leftMost = Math.min(from.left, to.left);
+                        // spread lanes outward (to the left)
+                        trunkX = leftMost - baseTrunkPad - Math.abs(laneOffsetX);
                     }
 
-                    const d = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y4} L ${x4} ${y4}`;
+                    // Small horizontal "breathing room" so sequential tasks have space for the elbow.
+                    // Note: We intentionally end the arrow at the target edge in the row gap (not midY),
+                    // to avoid drawing over the task bar itself.
+                    const padOut = 10;
+                    const fromOutX = fromEdgeX + (fromDir * padOut);
+
+                    let d;
+                    if (sameSide) {
+                        // GVG: same edge -> same edge (L->L or R->R)
+                        // Start at edge midY, go outward to trunk, vertical to target row gap, then into target edge in gap.
+                        d = [
+                            `M ${fromEdgeX} ${from.midY}`,  // start at source edge
+                            `L ${trunkX} ${from.midY}`,     // G (outward, no overlap with bar)
+                            `L ${trunkX} ${toEntryY}`,      // V
+                            `L ${toEdgeX} ${toEntryY}`      // G (arrowhead at target edge midY)
+                        ].join(' ');
+                    } else {
+                        // GVGVG: different edges (L->R or R->L), route via row gaps to avoid crossing bars
+                        d = [
+                            `M ${fromEdgeX} ${from.midY}`,  // start at source edge
+                            `L ${fromOutX} ${from.midY}`,   // G
+                            `L ${fromOutX} ${fromGapY}`,    // V
+                            `L ${trunkX} ${fromGapY}`,      // G
+                            `L ${trunkX} ${toEntryY}`,      // V
+                            `L ${toEdgeX} ${toEntryY}`      // G (arrowhead at target edge midY)
+                        ].join(' ');
+                    }
+
                     depsSvg += `<path d="${d}" fill="none" stroke="#6c757d" stroke-width="1.5" marker-end="url(#gantt-arrowhead)"></path>`;
                 });
 
