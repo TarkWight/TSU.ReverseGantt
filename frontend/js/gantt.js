@@ -244,32 +244,42 @@ Object.assign(app, {
                 const progress = item.task.progress || 0;
                 const statusLabel = this.humanizeEnum(item.task.status);
                 
-                let borderColor = '#000';
-                let bgColor = '#e9ecef';
+                let borderColor = '#6c757d'; // Серый контур по умолчанию (Planned)
+                let bgColor = '#e9ecef'; // Светло-серый фон по умолчанию (Planned)
                 let fillStyle = 'solid';
+                let showProgress = false;
+                let badgeText = null;
+                
+                if (status === 'planned') {
+                    borderColor = '#6c757d'; // Серый контур
+                    bgColor = '#e9ecef'; // Светло-серый фон
+                } else if (status === 'inprogress') {
+                    borderColor = '#6c757d'; // Серый контур (как Planned)
+                    bgColor = '#e9ecef'; // Светло-серый фон (как Planned)
+                    showProgress = true; // Показываем прогресс
+                } else if (status === 'needsreview') {
+                    borderColor = '#fd7e14'; // Оранжевый контур
+                    bgColor = '#fefefe'; // Светлый (почти белый) фон
+                    badgeText = 'Review';
+                } else if (status === 'accepted') {
+                    borderColor = '#198754'; // Зелёный контур
+                    bgColor = '#d1e7dd'; // Очень светло-зелёный фон
+                } else if (status === 'rejected') {
+                    borderColor = '#dc3545'; // Красно-оранжевый контур
+                    bgColor = '#e9ecef'; // Серый фон
+                    fillStyle = 'striped'; // Штриховка
+                } else if (status === 'blocked') {
+                    borderColor = '#000000'; // Чёрный контур
+                    bgColor = '#e9ecef'; // Серый фон
+                    badgeText = 'Blocked';
+                    showProgress = true; // Показываем прогресс, если есть
+                } else if (status === 'done') {
+                    borderColor = '#adb5bd'; // Светло-серый контур
+                    bgColor = '#ffffff'; // Белый фон
+                }
                 
                 if (isOverflow) {
                     borderColor = '#dc3545';
-                }
-                
-                if (status === 'inprogress') {
-                    bgColor = '#0d6efd'; // Blue
-                } else if (status === 'needsreview') {
-                    borderColor = '#fd7e14'; // Orange border
-                    bgColor = '#0dcaf0'; // Blue fill
-                } else if (status === 'accepted') {
-                    borderColor = '#fd7e14'; // Orange border
-                    bgColor = '#198754'; // Green fill
-                } else if (status === 'rejected') {
-                    borderColor = '#fd7e14'; // Orange border
-                    bgColor = '#e9ecef'; // Gray fill
-                    fillStyle = 'striped'; // Striped pattern
-                } else if (status === 'blocked') {
-                    borderColor = '#000'; // Black border
-                    bgColor = progress > 0 ? '#0d6efd' : '#e9ecef'; // Blue if in progress, gray if planned
-                } else if (status === 'done') {
-                    borderColor = '#adb5bd'; // Light gray border
-                    bgColor = '#ffffff'; // White fill
                 }
                 
                 const borderWidth = item.isCritical ? '3px' : '1px';
@@ -281,25 +291,43 @@ Object.assign(app, {
                         const normalWidth = right - startPx;
                         
                         html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                        html += `<div class="gantt-task-bar-overflow" style="width: ${overflowWidth}px; height: ${rowHeight}px; background: #dc3545; border: ${borderWidth} solid #dc3545; border-radius: 3px 0 0 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
-                        if (status === 'inprogress' && progress > 0) {
+                        html += `<div class="gantt-task-bar-overflow" style="width: ${overflowWidth}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid #dc3545; border-radius: 3px 0 0 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
+                        if (showProgress && progress > 0) {
                             html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * overflowWidth}px; height: 100%; background: #198754; border-radius: 3px 0 0 3px; z-index: 1;"></div>`;
+                        }
+                        if (fillStyle === 'striped') {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px 0 0 3px; z-index: 2;"></div>`;
+                        }
+                        if (badgeText) {
+                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
                         }
                         html += `</div>`;
                         html += `</div>`;
                         
                         html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${startPx}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
                         html += `<div class="gantt-task-bar" style="width: ${normalWidth}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 0 3px 3px 0; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
-                        if (status === 'inprogress' && progress > 0) {
+                        if (showProgress && progress > 0) {
                             html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * normalWidth}px; height: 100%; background: #198754; border-radius: 0 3px 3px 0; z-index: 1;"></div>`;
+                        }
+                        if (fillStyle === 'striped') {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 0 3px 3px 0; z-index: 2;"></div>`;
+                        }
+                        if (badgeText) {
+                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
                         }
                         html += `</div>`;
                         html += `</div>`;
                     } else {
                         html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                        html += `<div class="gantt-task-bar-overflow" style="width: ${width}px; height: ${rowHeight}px; background: #dc3545; border: ${borderWidth} solid #dc3545; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
-                        if (status === 'inprogress' && progress > 0) {
+                        html += `<div class="gantt-task-bar-overflow" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid #dc3545; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)} (Overflow)">`;
+                        if (showProgress && progress > 0) {
                             html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
+                        }
+                        if (fillStyle === 'striped') {
+                            html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
+                        }
+                        if (badgeText) {
+                            html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
                         }
                         html += `</div>`;
                         html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
@@ -316,11 +344,14 @@ Object.assign(app, {
                 } else {
                     html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
                     html += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}">`;
-                    if (status === 'inprogress' && progress > 0) {
+                    if (showProgress && progress > 0) {
                         html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
                     }
                     if (fillStyle === 'striped') {
                         html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
+                    }
+                    if (badgeText) {
+                        html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
                     }
                     html += `</div>`;
                     html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
