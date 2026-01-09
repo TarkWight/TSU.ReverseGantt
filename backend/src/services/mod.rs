@@ -8,6 +8,7 @@ pub mod membership_service;
 pub mod assignment_service;
 pub mod artifact_service;
 pub mod notification_service;
+pub mod password_reset_service;
 
 pub use user_service::{UserService, UserServiceImpl};
 pub use review_service::{ReviewService, ReviewServiceImpl};
@@ -19,3 +20,4 @@ pub use membership_service::{MembershipService, MembershipServiceImpl};
 pub use assignment_service::{AssignmentService, AssignmentServiceImpl};
 pub use artifact_service::{ArtifactService, ArtifactServiceImpl};
 pub use notification_service::{NotificationService, NotificationServiceImpl};
+pub use password_reset_service::{PasswordResetService, PasswordResetServiceImpl};
