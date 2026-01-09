@@ -360,9 +360,18 @@ impl TaskService for TaskServiceImpl {
 
         self.task_repo.insert(&task).await.map_err(AppError::Internal)?;
 
-        let final_owner_id = if auth.is_teacher {
+        // Check if user is teacher or project leader
+        let is_teacher = auth.is_teacher;
+        let is_leader = !is_teacher && {
+            match self.membership_repo.find_by_project_and_user(project_id, auth.user_id).await {
+                Ok(Some(membership)) => membership.is_leader,
+                _ => false,
+            }
+        };
+
+        let final_owner_id = if is_teacher || is_leader {
             let oid = owner_id.ok_or_else(|| {
-                AppError::Validation("Teacher must specify owner_id".into())
+                AppError::Validation("Teacher or project leader must specify owner_id".into())
             })?;
 
             let owner_user = self.user_repo
