@@ -101,6 +101,18 @@ Object.assign(app, {
             return;
         }
 
+            // Load dependencies for all tasks (N+1 via existing API; keep data flow intact)
+            // Result is used only for visualization (no schedule recomputation).
+            const dependencyLists = await Promise.all(
+                items.map(i => api.getDependencies(i.task.id).catch(() => []))
+            );
+            const depMap = new Map(); // depId -> dep
+            dependencyLists.flat().forEach(dep => {
+                const depId = dep.id || `${dep.fromTaskId || dep.from_task_id}->${dep.toTaskId || dep.to_task_id}`;
+                if (!depMap.has(depId)) depMap.set(depId, dep);
+            });
+            const allDeps = Array.from(depMap.values());
+
             const minTaskTime = new Date(Math.min(...items.map(i => i.ls.getTime())));
             const minTime = projectStartDate && projectStartDate.getTime() < minTaskTime.getTime()
                 ? projectStartDate
@@ -238,80 +250,138 @@ Object.assign(app, {
                 html += `<div class="gantt-time-division" style="position: absolute; left: ${left}px; top: 0; width: 1px; height: ${gridHeight}px; border-right: 1px solid #dee2e6; pointer-events: none;"></div>`;
             });
 
+            // First pass: compute bar geometry + render task bars; keep positions for dependency routing
+            const barPos = new Map(); // taskId -> { left, right, midY }
+            let taskBarsHtml = '';
+
             items.forEach((item, rowIndex) => {
                 const leftRaw = timeToPx(item.ls);
                 const rightRaw = timeToPx(item.lf);
                 const top = rowIndex * taskRowHeight;
                 
-                const startPx = projectStartDate ? timeToPx(projectStartDate) : null;
                 const isOverflow = projectStartDate && item.ls.getTime() < projectStartDate.getTime();
                 
                 const clampedRight = Math.min(rightRaw, totalGridWidth);
-                const clampedLeft = Math.max(0, leftRaw); // Обрезаем слева до 0, но визуально показываем overflow
+                const clampedLeft = Math.max(0, leftRaw); // visually clipped at left edge
                 const left = clampedLeft;
                 const width = Math.max(2, clampedRight - clampedLeft);
+                const right = left + width;
+
+                barPos.set(item.task.id, { left, right, midY: top + (rowHeight / 2) });
                 
                 const status = (item.task.status || '').toLowerCase();
                 const progress = item.task.progress || 0;
                 const statusLabel = this.humanizeEnum(item.task.status);
                 
-                let borderColor = '#6c757d'; // Серый контур по умолчанию (Planned)
-                let bgColor = '#e9ecef'; // Светло-серый фон по умолчанию (Planned)
+                let borderColor = '#6c757d'; // Planned default
+                let bgColor = '#e9ecef';
                 let fillStyle = 'solid';
                 let showProgress = false;
                 let badgeText = null;
                 
                 if (status === 'planned') {
-                    borderColor = '#6c757d'; // Серый контур
-                    bgColor = '#e9ecef'; // Светло-серый фон
+                    borderColor = '#6c757d';
+                    bgColor = '#e9ecef';
                 } else if (status === 'inprogress') {
-                    borderColor = '#6c757d'; // Серый контур (как Planned)
-                    bgColor = '#e9ecef'; // Светло-серый фон (как Planned)
-                    showProgress = true; // Показываем прогресс
+                    borderColor = '#6c757d';
+                    bgColor = '#e9ecef';
+                    showProgress = true;
                 } else if (status === 'needsreview') {
-                    borderColor = '#fd7e14'; // Оранжевый контур
-                    bgColor = '#fefefe'; // Светлый (почти белый) фон
+                    borderColor = '#fd7e14';
+                    bgColor = '#fefefe';
                     badgeText = 'Review';
                 } else if (status === 'accepted') {
-                    borderColor = '#198754'; // Зелёный контур
-                    bgColor = '#d1e7dd'; // Очень светло-зелёный фон
+                    borderColor = '#198754';
+                    bgColor = '#d1e7dd';
                 } else if (status === 'rejected') {
-                    borderColor = '#dc3545'; // Красно-оранжевый контур
-                    bgColor = '#e9ecef'; // Серый фон
-                    fillStyle = 'striped'; // Штриховка
+                    borderColor = '#dc3545';
+                    bgColor = '#e9ecef';
+                    fillStyle = 'striped';
                 } else if (status === 'blocked') {
-                    borderColor = '#000000'; // Чёрный контур
-                    bgColor = '#e9ecef'; // Серый фон
+                    borderColor = '#000000';
+                    bgColor = '#e9ecef';
                     badgeText = 'Blocked';
-                    showProgress = true; // Показываем прогресс, если есть
+                    showProgress = true;
                 } else if (status === 'done') {
-                    borderColor = '#adb5bd'; // Светло-серый контур
-                    bgColor = '#ffffff'; // Белый фон
+                    borderColor = '#adb5bd';
+                    bgColor = '#ffffff';
                 }
                 
                 if (isOverflow) {
-                    borderColor = '#dc3545';
+                    borderColor = '#dc3545'; // overflow overlays status border
                 }
                 
                 const borderWidth = item.isCritical ? '3px' : '1px';
                 
-                const right = left + width;
-                html += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
-                html += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}${isOverflow ? ' (Overflow)' : ''}">`;
+                taskBarsHtml += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
+                taskBarsHtml += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}${isOverflow ? ' (Overflow)' : ''}">`;
                 if (showProgress && progress > 0) {
-                    html += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
+                    taskBarsHtml += `<div style="position: absolute; left: 0; top: 0; width: ${(progress / 100) * width}px; height: 100%; background: #198754; border-radius: 3px; z-index: 1;"></div>`;
                 }
                 if (fillStyle === 'striped') {
-                    html += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
+                    taskBarsHtml += `<div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.1) 4px, rgba(0,0,0,0.1) 8px); border-radius: 3px; z-index: 2;"></div>`;
                 }
                 if (badgeText) {
-                    html += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
+                    taskBarsHtml += `<div style="position: absolute; right: 2px; top: 1px; font-size: 0.6rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 3px; border-radius: 2px; z-index: 3;">${this.escapeHtml(badgeText)}</div>`;
                 }
-                html += `</div>`;
-                html += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
-                html += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
-                html += `</div>`;
+                taskBarsHtml += `</div>`;
+                taskBarsHtml += `<div style="font-size: 0.7rem; color: #495057; white-space: nowrap; padding: 0 2px;">${this.escapeHtml(statusLabel)}</div>`;
+                taskBarsHtml += `<div style="font-size: 0.7rem; color: #6c757d; white-space: nowrap; padding: 0 2px;">${progress}%</div>`;
+                taskBarsHtml += `</div>`;
             });
+
+            // Dependencies overlay (orthogonal arrows)
+            if (allDeps.length > 0) {
+                let depsSvg = `<svg class="gantt-deps-overlay" width="${totalGridWidth}" height="${gridHeight}" viewBox="0 0 ${totalGridWidth} ${gridHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;">`;
+                depsSvg += `
+                    <defs>
+                        <marker id="gantt-arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"></path>
+                        </marker>
+                    </defs>
+                `;
+
+                const getFromId = (dep) => dep.fromTaskId || dep.from_task_id;
+                const getToId = (dep) => dep.toTaskId || dep.to_task_id;
+
+                allDeps.forEach(dep => {
+                    const fromId = getFromId(dep);
+                    const toId = getToId(dep);
+                    if (!fromId || !toId) return;
+                    const from = barPos.get(fromId);
+                    const to = barPos.get(toId);
+                    if (!from || !to) return;
+
+                    // Anchor points depend on relative position (supports both left and right arrows)
+                    const fromCenterX = (from.left + from.right) / 2;
+                    const toCenterX = (to.left + to.right) / 2;
+                    const isRight = toCenterX >= fromCenterX;
+
+                    const x1 = isRight ? from.right : from.left;
+                    const y1 = from.midY;
+                    const x4 = isRight ? to.left : to.right;
+                    const y4 = to.midY;
+
+                    // Orthogonal path: horiz -> vert -> horiz
+                    let x2 = (x1 + x4) / 2;
+                    // keep a minimum clearance so we don't hug the bars too closely
+                    const minOffset = 18;
+                    if (isRight) {
+                        x2 = Math.max(x1 + minOffset, Math.min(x2, x4 - minOffset));
+                    } else {
+                        x2 = Math.min(x1 - minOffset, Math.max(x2, x4 + minOffset));
+                    }
+
+                    const d = `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y4} L ${x4} ${y4}`;
+                    depsSvg += `<path d="${d}" fill="none" stroke="#6c757d" stroke-width="1.5" marker-end="url(#gantt-arrowhead)"></path>`;
+                });
+
+                depsSvg += `</svg>`;
+                html += depsSvg;
+            }
+
+            // Render task bars on top of dependency arrows
+            html += taskBarsHtml;
 
             html += '</div>'; // Конец тела грида
             html += '</div>'; // Конец обёртки грида
