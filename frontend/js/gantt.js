@@ -343,8 +343,17 @@ Object.assign(app, {
                 let depsSvg = `<svg class="gantt-deps-overlay" width="${totalGridWidth}" height="${gridHeight}" viewBox="0 0 ${totalGridWidth} ${gridHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;">`;
                 depsSvg += `
                     <defs>
-                        <marker id="gantt-arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                        <marker id="gantt-arrowhead-fs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
                             <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"></path>
+                        </marker>
+                        <marker id="gantt-arrowhead-ss" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0d6efd"></path>
+                        </marker>
+                        <marker id="gantt-arrowhead-ff" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#6f42c1"></path>
+                        </marker>
+                        <marker id="gantt-arrowhead-sf" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#20c997"></path>
                         </marker>
                     </defs>
                 `;
@@ -367,6 +376,15 @@ Object.assign(app, {
                     if (!from || !to) return;
 
                     const depType = (dep.depType || dep.dep_type || 'FS').toUpperCase();
+
+                    // Dependency visual styling (color only; geometry unchanged)
+                    const depStyleMap = {
+                        FS: { color: '#6c757d', marker: 'gantt-arrowhead-fs' }, // gray
+                        SS: { color: '#0d6efd', marker: 'gantt-arrowhead-ss' }, // blue
+                        FF: { color: '#6f42c1', marker: 'gantt-arrowhead-ff' }, // purple
+                        SF: { color: '#20c997', marker: 'gantt-arrowhead-sf' }  // teal
+                    };
+                    const depStyle = depStyleMap[depType] || depStyleMap.FS;
 
                     // Map dependency type to which edge to connect:
                     // S = left edge, F = right edge
@@ -438,7 +456,7 @@ Object.assign(app, {
                         ].join(' ');
                     }
 
-                    depsSvg += `<path d="${d}" fill="none" stroke="#6c757d" stroke-width="1.5" marker-end="url(#gantt-arrowhead)"></path>`;
+                    depsSvg += `<path d="${d}" fill="none" stroke="${depStyle.color}" stroke-width="1.5" marker-end="url(#${depStyle.marker})"></path>`;
                 });
 
                 depsSvg += `</svg>`;
@@ -609,6 +627,60 @@ Object.assign(app, {
                             <div class="mb-2">
                                 <p class="mb-1">Progress is shown as a green bar (left to right) for <strong>In Progress</strong> and <strong>Blocked</strong> tasks.</p>
                                 <p class="mb-0 text-muted small">The progress bar appears even on overflow (red border) sections, showing actual completion percentage.</p>
+                            </div>
+
+                            <hr class="my-4"/>
+
+                            <h6 class="mb-3">Dependencies</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
+                                            <defs>
+                                                <marker id="legend-arrow-fs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6c757d"></path>
+                                                </marker>
+                                            </defs>
+                                            <path d="M 0 8 L 38 8" stroke="#6c757d" stroke-width="2" marker-end="url(#legend-arrow-fs)"></path>
+                                        </svg>
+                                        <span><strong>FS</strong> (Finish → Start)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
+                                            <defs>
+                                                <marker id="legend-arrow-ss" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#0d6efd"></path>
+                                                </marker>
+                                            </defs>
+                                            <path d="M 0 8 L 38 8" stroke="#0d6efd" stroke-width="2" marker-end="url(#legend-arrow-ss)"></path>
+                                        </svg>
+                                        <span><strong>SS</strong> (Start → Start)</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
+                                            <defs>
+                                                <marker id="legend-arrow-ff" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#6f42c1"></path>
+                                                </marker>
+                                            </defs>
+                                            <path d="M 0 8 L 38 8" stroke="#6f42c1" stroke-width="2" marker-end="url(#legend-arrow-ff)"></path>
+                                        </svg>
+                                        <span><strong>FF</strong> (Finish → Finish)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
+                                            <defs>
+                                                <marker id="legend-arrow-sf" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#20c997"></path>
+                                                </marker>
+                                            </defs>
+                                            <path d="M 0 8 L 38 8" stroke="#20c997" stroke-width="2" marker-end="url(#legend-arrow-sf)"></path>
+                                        </svg>
+                                        <span><strong>SF</strong> (Start → Finish)</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
