@@ -300,3 +300,91 @@ body {
 .bell-animate {
     animation: bell-shake 0.5s ease-in-out;
 }
+
+/* Tasks table styles - clean, minimal, readable */
+.tasks-table {
+    background: white;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.tasks-table thead th {
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    padding: 12px 8px;
+    background: white;
+    text-align: left;
+}
+
+.tasks-table tbody td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.tasks-table tbody tr.task-row {
+    background: white;
+    transition: background-color 0.15s ease;
+}
+
+.tasks-table tbody tr.task-row:hover {
+    background-color: #f8f9fa;
+}
+
+.tasks-table .task-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.status-indicator {
+    flex-shrink: 0;
+}
+
+.sortable-header {
+    transition: background-color 0.15s ease;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.sortable-header:hover {
+    background-color: #f8f9fa;
+}
+
+.sortable-header > div {
+    min-width: 0;
+}
+
+.sortable-header .badge {
+    min-width: 18px;
+    text-align: center;
+    padding: 2px 4px;
+}
+
+.sort-remove-btn {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.sort-remove-btn:hover {
+    opacity: 1;
+}
+
+.sort-remove-btn i {
+    font-size: 0.9rem;
+}
+
+.gantt-resizer {
+    transition: background-color 0.2s ease;
+}
+
+.gantt-resizer:hover {
+    background: #adb5bd;
+}
