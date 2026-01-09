@@ -7,6 +7,7 @@ mod dependency;
 mod membership;
 mod review;
 mod notification;
+mod password_reset;
 mod schedule;
 mod project_stats;
 
@@ -21,3 +22,4 @@ pub use review::ReviewResponse;
 pub use notification::{NotificationResponse, NotificationsListResponse};
 pub use schedule::ReverseScheduleResponse;
 pub use project_stats::{ProjectStatsResponse, MemberInfo};
+pub use password_reset::{PasswordResetResponse, PasswordResetRequestResponse};
