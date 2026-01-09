@@ -1,0 +1,18 @@
+[package]
+name = "frontend-proxy"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Arsentiy Gonda"]
+
+[dependencies]
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", features = ["json"] }
+anyhow = "1.0"
+dotenvy = "0.15"
+http = "1.3"

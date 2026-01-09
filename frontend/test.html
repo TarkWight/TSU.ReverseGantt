@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick Test - hideAllPages</title>
+</head>
+<body>
+    <div id="login-page">Login</div>
+    <div id="app-content"></div>
+    
+    <script>
+        const app = {
+            hideAllPages() {
+                const pages = [
+                    'login-page', 'register-page', 'projects-page', 
+                    'project-details-page', 'task-details-page', 'teachers-page'
+                ];
+                pages.forEach(pageId => {
+                    const page = document.getElementById(pageId);
+                    if (page) {
+                        page.style.display = 'none';
+                        console.log('Hidden:', pageId);
+                    } else {
+                        console.log('Not found:', pageId);
+                    }
+                });
+            }
+        };
+        
+        // Test
+        console.log('Testing hideAllPages...');
+        app.hideAllPages();
+        console.log('Test complete');
+    </script>
+</body>
+</html>
+
