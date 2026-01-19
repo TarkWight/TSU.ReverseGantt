@@ -379,6 +379,7 @@ Object.assign(app, {
                     const fromId = getFromId(dep);
                     const toId = getToId(dep);
                     if (!fromId || !toId) return;
+
                     const from = barPos.get(fromId);
                     const to = barPos.get(toId);
                     if (!from || !to) return;
@@ -386,68 +387,38 @@ Object.assign(app, {
                     const depType = (dep.depType || dep.dep_type || 'FS').toUpperCase();
 
                     const depStyleMap = {
-                        FS: {color: '#6c757d', marker: 'gantt-arrowhead-fs'},
-                        SS: {color: '#0d6efd', marker: 'gantt-arrowhead-ss'},
-                        FF: {color: '#6f42c1', marker: 'gantt-arrowhead-ff'},
-                        SF: {color: '#20c997', marker: 'gantt-arrowhead-sf'}
+                        FS: { color: '#6c757d', marker: 'gantt-arrowhead-fs' },
+                        SS: { color: '#0d6efd', marker: 'gantt-arrowhead-ss' },
+                        FF: { color: '#6f42c1', marker: 'gantt-arrowhead-ff' },
+                        SF: { color: '#20c997', marker: 'gantt-arrowhead-sf' }
                     };
                     const depStyle = depStyleMap[depType] || depStyleMap.FS;
 
-                    const fromSide = depType[0] === 'F' ? 'right' : 'left';
-                    const toSide = depType[1] === 'F' ? 'right' : 'left';
-                    const sameSide = fromSide === toSide;
+                    const x1 = from.left;
+                    const y1 = from.midY;
 
-                    const key = `${fromId}->${toId}`;
-                    if (!laneByKey.has(key)) {
-                        laneByKey.set(key, laneCursor % laneCount);
-                        laneCursor += 1;
-                    }
-                    const lane = laneByKey.get(key);
-                    const laneOffsetX = (lane - Math.floor(laneCount / 2)) * laneStepX;
+                    const x2 = to.left;
+                    const y2 = to.midY;
 
-                    const gap = rowGap / 2;
-                    const goingDown = to.rowIndex > from.rowIndex;
-                    const fromGapY = goingDown ? (from.bottom + gap) : (from.top - gap);
-                    const toEntryY = to.midY;
+                    const L = 18;
+                    const R = 10;
+                    const cornerX = Math.max(6, Math.min(x1, x2) - L);
 
-                    const fromEdgeX = fromSide === 'right' ? from.right : from.left;
-                    const toEdgeX = toSide === 'right' ? to.right : to.left;
-                    const fromDir = fromSide === 'right' ? 1 : -1;
+                    const s = y2 > y1;
 
-                    const baseTrunkPad = 24;
-                    let trunkX;
-                    if (fromSide === 'right') {
-                        const rightMost = Math.max(from.right, to.right);
-                        trunkX = rightMost + baseTrunkPad + Math.abs(laneOffsetX);
-                    } else {
-                        const leftMost = Math.min(from.left, to.left);
-                        trunkX = leftMost - baseTrunkPad - Math.abs(laneOffsetX);
-                    }
+                    const d = [
+                        `M ${x1} ${y1}`,
+                        `L ${cornerX} ${y1}`,
+                        `L ${cornerX} ${y2}`,
+                        `L ${x2 - R} ${y2}`,
+                        `L ${x2} ${y2}`
+                    ].join(' ');
 
-                    const padOut = 10;
-                    const fromOutX = fromEdgeX + (fromDir * padOut);
-
-                    let d;
-                    if (sameSide) {
-                        d = [
-                            `M ${fromEdgeX} ${from.midY}`,
-                            `L ${trunkX} ${from.midY}`,
-                            `L ${trunkX} ${toEntryY}`,
-                            `L ${toEdgeX} ${toEntryY}`
-                        ].join(' ');
-                    } else {
-                        d = [
-                            `M ${fromEdgeX} ${from.midY}`,
-                            `L ${fromOutX} ${from.midY}`,
-                            `L ${fromOutX} ${fromGapY}`,
-                            `L ${trunkX} ${fromGapY}`,
-                            `L ${trunkX} ${toEntryY}`,
-                            `L ${toEdgeX} ${toEntryY}`
-                        ].join(' ');
-                    }
-
-                    depsSvg += `<path d="${d}" fill="none" stroke="${depStyle.color}" stroke-width="1.5" marker-end="url(#${depStyle.marker})"></path>`;
+                    depsSvg += `<path d="${d}" fill="none" stroke="${depStyle.color}" stroke-width="1.5"
+    stroke-linejoin="round" stroke-linecap="round"
+    marker-end="url(#${depStyle.marker})"></path>`;
                 });
+
 
                 depsSvg += `</svg>`;
                 html += depsSvg;
@@ -533,23 +504,23 @@ Object.assign(app, {
                                 <div class="col-md-6">
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
-                                        <span><strong>Planned</strong> - Gray border, light gray background</span>
+                                        <span><strong>Planned</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
                                             <div style="position: absolute; left: 0; top: 0; width: 50%; height: 100%; background: #198754; border-radius: 3px 0 0 3px;"></div>
                                         </div>
-                                        <span><strong>In Progress</strong> - Gray border, light gray background + green progress bar</span>
+                                        <span><strong>In Progress</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #fd7e14; background: #fefefe; border-radius: 3px; margin-right: 10px; position: relative;">
                                             <div style="position: absolute; right: 2px; top: 1px; font-size: 0.5rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 2px; border-radius: 2px;">Review</div>
                                         </div>
-                                        <span><strong>Needs Review</strong> - Orange border, light background + "Review" badge</span>
+                                        <span><strong>Needs Review</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #198754; background: #d1e7dd; border-radius: 3px; margin-right: 10px;"></div>
-                                        <span><strong>Accepted</strong> - Green border, very light green background</span>
+                                        <span><strong>Accepted</strong></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -557,17 +528,17 @@ Object.assign(app, {
                                         <div style="width: 40px; height: 20px; border: 1px solid #dc3545; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
                                             <div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 6px); border-radius: 3px;"></div>
                                         </div>
-                                        <span><strong>Rejected</strong> - Red-orange border, gray background + striped pattern</span>
+                                        <span><strong>Rejected</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #000000; background: #e9ecef; border-radius: 3px; margin-right: 10px; position: relative;">
                                             <div style="position: absolute; right: 2px; top: 1px; font-size: 0.5rem; color: #495057; background: rgba(255,255,255,0.8); padding: 1px 2px; border-radius: 2px;">Blocked</div>
                                         </div>
-                                        <span><strong>Blocked</strong> - Black border, gray background + "Blocked" badge</span>
+                                        <span><strong>Blocked</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #adb5bd; background: #ffffff; border-radius: 3px; margin-right: 10px;"></div>
-                                        <span><strong>Done</strong> - Light gray border, white background</span>
+                                        <span><strong>Done</strong></span>
                                     </div>
                                 </div>
                             </div>
@@ -577,25 +548,25 @@ Object.assign(app, {
                                 <div class="col-md-6">
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 3px solid #6c757d; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
-                                        <span><strong>Critical Path</strong> - Thicker border (3px)</span>
+                                        <span><strong>Critical Path</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 40px; height: 20px; border: 1px solid #dc3545; background: #e9ecef; border-radius: 3px; margin-right: 10px;"></div>
-                                        <span><strong>Overflow</strong> - Red border (task starts before project start date)</span>
+                                        <span><strong>Overflow</strong></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 3px; height: 30px; background: #ffc107; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8); margin-right: 10px;"></div>
-                                        <span><strong>Current Time</strong> - Yellow vertical line with "Now" label</span>
+                                        <span><strong>Current Time</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 2px; height: 30px; background: #198754; margin-right: 10px;"></div>
-                                        <span><strong>Project Start</strong> - Green vertical line</span>
+                                        <span><strong>Project Start</strong></span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <div style="width: 2px; height: 30px; background: #dc3545; border-left: 2px dashed #dc3545; margin-right: 10px;"></div>
-                                        <span><strong>Project Deadline</strong> - Red dashed vertical line</span>
+                                        <span><strong>Project Deadline</strong></span>
                                     </div>
                                 </div>
                             </div>
@@ -620,7 +591,7 @@ Object.assign(app, {
                                             </defs>
                                             <path d="M 0 8 L 38 8" stroke="#6c757d" stroke-width="2" marker-end="url(#legend-arrow-fs)"></path>
                                         </svg>
-                                        <span><strong>FS</strong> (Finish → Start)</span>
+                                        <span><strong>FS</strong> (Finish -> Start)</span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
@@ -631,7 +602,7 @@ Object.assign(app, {
                                             </defs>
                                             <path d="M 0 8 L 38 8" stroke="#0d6efd" stroke-width="2" marker-end="url(#legend-arrow-ss)"></path>
                                         </svg>
-                                        <span><strong>SS</strong> (Start → Start)</span>
+                                        <span><strong>SS</strong> (Start -> Start)</span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -644,7 +615,7 @@ Object.assign(app, {
                                             </defs>
                                             <path d="M 0 8 L 38 8" stroke="#6f42c1" stroke-width="2" marker-end="url(#legend-arrow-ff)"></path>
                                         </svg>
-                                        <span><strong>FF</strong> (Finish → Finish)</span>
+                                        <span><strong>FF</strong> (Finish -> Finish)</span>
                                     </div>
                                     <div class="d-flex align-items-center mb-2">
                                         <svg width="44" height="16" style="margin-right: 10px; overflow: visible;">
@@ -655,7 +626,7 @@ Object.assign(app, {
                                             </defs>
                                             <path d="M 0 8 L 38 8" stroke="#20c997" stroke-width="2" marker-end="url(#legend-arrow-sf)"></path>
                                         </svg>
-                                        <span><strong>SF</strong> (Start → Finish)</span>
+                                        <span><strong>SF</strong> (Start -> Finish)</span>
                                     </div>
                                 </div>
                             </div>
