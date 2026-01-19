@@ -395,8 +395,3 @@
     overflow: visible;
     flex: 0 0 auto;
 }
-.gantt-legend-dep path {
-    fill: none;
-    stroke-width: 2;
-    stroke: currentColor;
-}

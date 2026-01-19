@@ -15,6 +15,21 @@ Object.assign(app, {
         await this.renderGanttChart(tasks);
     },
 
+    getGanttDepColors() {
+        // Read CSS variables so SVG markers match the same colors as lines/legend.
+        const rs = getComputedStyle(document.documentElement);
+        const pick = (name, fallback) => {
+            const v = (rs.getPropertyValue(name) || '').trim();
+            return v || fallback;
+        };
+        return {
+            FS: pick('--dep-fs', '#6c757d'),
+            SS: pick('--dep-ss', '#0d6efd'),
+            FF: pick('--dep-ff', '#6f42c1'),
+            SF: pick('--dep-sf', '#20c997')
+        };
+    },
+
     renderGanttChart: async function (tasks) {
         try {
             const container = document.getElementById('gantt-container');
@@ -324,19 +339,31 @@ Object.assign(app, {
 
 
             if (allDeps.length > 0) {
+                const depColors = this.getGanttDepColors();
                 let depsSvg = `
-    <svg class="gantt-deps-overlay"
-         width="${totalGridWidth}"
-         height="${gridHeight}"
-         viewBox="0 0 ${totalGridWidth} ${gridHeight}">
-      <defs>
-        <marker id="gantt-arrowhead" markerWidth="10" markerHeight="10"
-                refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-          <!-- SVG2: arrowhead inherits the stroke color of the path via context-stroke -->
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
-        </marker>
-      </defs>
-  `;
+                    <svg class="gantt-deps-overlay"
+                         width="${totalGridWidth}"
+                         height="${gridHeight}"
+                         viewBox="0 0 ${totalGridWidth} ${gridHeight}">
+                      <defs>
+                        <marker id="gantt-arrowhead-fs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                          <path d="M 0 0 L 10 5 L 0 10 z"
+                      fill="${depColors.FS}"
+                      stroke="${depColors.FS}"
+                      stroke-width="1"></path>
+                
+                        </marker>
+                        <marker id="gantt-arrowhead-ss" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="${depColors.SS}" stroke="none"></path>
+                        </marker>
+                        <marker id="gantt-arrowhead-ff" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="${depColors.FF}" stroke="none"></path>
+                        </marker>
+                        <marker id="gantt-arrowhead-sf" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                          <path d="M 0 0 L 10 5 L 0 10 z" fill="${depColors.SF}" stroke="none"></path>
+                        </marker>
+                      </defs>
+                  `;
 
                 const getFromId = (dep) => dep.fromTaskId || dep.from_task_id;
                 const getToId = (dep) => dep.toTaskId || dep.to_task_id;
@@ -352,7 +379,6 @@ Object.assign(app, {
 
                     const depType = (dep.depType || dep.dep_type || 'FS').toUpperCase();
 
-                    // класс цвета (вместо цвета в JS)
                     const depClassMap = {
                         FS: 'gantt-dep--fs',
                         SS: 'gantt-dep--ss',
@@ -379,11 +405,13 @@ Object.assign(app, {
                         `L ${x2} ${y2}`
                     ].join(' ');
 
+                    const markerId = `gantt-arrowhead-${depType.toLowerCase()}`;
+
                     depsSvg += `
                       <path class="gantt-dep-path ${depClass}"
                             d="${d}"
                             stroke="currentColor"
-                            marker-end="url(#gantt-arrowhead)"></path>
+                            marker-end="url(#${markerId})"></path>
                     `;
                 });
 
@@ -458,6 +486,7 @@ Object.assign(app, {
     },
 
     showGanttLegend() {
+        const depColors = this.getGanttDepColors();
         const legendHtml = `
     <div class="modal fade" id="gantt-legend-modal" tabindex="-1">
       <div class="modal-dialog modal-lg">
@@ -558,59 +587,116 @@ Object.assign(app, {
 
             <h6 class="mb-3">Dependencies</h6>
 
-            <div class="row g-3">
-              <div class="col-md-6">
-                <div class="d-flex align-items-center mb-2">
-                  <svg class="gantt-legend-dep gantt-dep--fs" viewBox="0 0 44 16">
-                    <defs>
-                      <marker id="legend-arrowhead-fs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
-                      </marker>
-                    </defs>
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-fs)"></path>
-                  </svg>
-                  <span><strong>FS</strong> (Finish -> Start)</span>
-                </div>
+<div class="row g-3">
+  <div class="col-md-6">
 
-                <div class="d-flex align-items-center mb-2">
-                  <svg class="gantt-legend-dep gantt-dep--ss" viewBox="0 0 44 16">
-                    <defs>
-                      <marker id="legend-arrowhead-ss" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
-                      </marker>
-                    </defs>
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-ss)"></path>
-                  </svg>
-                  <span><strong>SS</strong> (Start -> Start)</span>
-                </div>
-              </div>
+    <div class="d-flex align-items-center mb-2">
+      <svg class="gantt-legend-dep" viewBox="0 0 44 16">
+        <defs>
+          <marker id="legend-arrowhead-fs"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="8"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z"
+                  fill="${depColors.FS}"
+                  stroke="${depColors.FS}"
+                  stroke-width="1"></path>
+          </marker>
+        </defs>
+        <path d="M 0 8 L 38 8"
+              stroke="${depColors.FS}"
+              stroke-width="2"
+              fill="none"
+              marker-end="url(#legend-arrowhead-fs)"></path>
+      </svg>
+      <span><strong>FS</strong> (Finish -> Start)</span>
+    </div>
 
-              <div class="col-md-6">
-                <div class="d-flex align-items-center mb-2">
-                  <svg class="gantt-legend-dep gantt-dep--ff" viewBox="0 0 44 16">
-                    <defs>
-                      <marker id="legend-arrowhead-ff" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
-                      </marker>
-                    </defs>
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-ff)"></path>
-                  </svg>
-                  <span><strong>FF</strong> (Finish -> Finish)</span>
-                </div>
+    <div class="d-flex align-items-center mb-2">
+      <svg class="gantt-legend-dep" viewBox="0 0 44 16">
+        <defs>
+          <marker id="legend-arrowhead-ss"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="8"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z"
+                  fill="${depColors.SS}"
+                  stroke="${depColors.SS}"
+                  stroke-width="1"></path>
+          </marker>
+        </defs>
+        <path d="M 0 8 L 38 8"
+              stroke="${depColors.SS}"
+              stroke-width="2"
+              fill="none"
+              marker-end="url(#legend-arrowhead-ss)"></path>
+      </svg>
+      <span><strong>SS</strong> (Start -> Start)</span>
+    </div>
 
-                <div class="d-flex align-items-center mb-2">
-                  <svg class="gantt-legend-dep gantt-dep--sf" viewBox="0 0 44 16">
-                    <defs>
-                      <marker id="legend-arrowhead-sf" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
-                      </marker>
-                    </defs>
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-sf)"></path>
-                  </svg>
-                  <span><strong>SF</strong> (Start -> Finish)</span>
-                </div>
-              </div>
-            </div>
+  </div>
+
+  <div class="col-md-6">
+
+    <div class="d-flex align-items-center mb-2">
+      <svg class="gantt-legend-dep" viewBox="0 0 44 16">
+        <defs>
+          <marker id="legend-arrowhead-ff"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="8"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z"
+                  fill="${depColors.FF}"
+                  stroke="${depColors.FF}"
+                  stroke-width="1"></path>
+          </marker>
+        </defs>
+        <path d="M 0 8 L 38 8"
+              stroke="${depColors.FF}"
+              stroke-width="2"
+              fill="none"
+              marker-end="url(#legend-arrowhead-ff)"></path>
+      </svg>
+      <span><strong>FF</strong> (Finish -> Finish)</span>
+    </div>
+
+    <div class="d-flex align-items-center mb-2">
+      <svg class="gantt-legend-dep" viewBox="0 0 44 16">
+        <defs>
+          <marker id="legend-arrowhead-sf"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="8"
+                  refY="5"
+                  orient="auto"
+                  markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z"
+                  fill="${depColors.SF}"
+                  stroke="${depColors.SF}"
+                  stroke-width="1"></path>
+          </marker>
+        </defs>
+        <path d="M 0 8 L 38 8"
+              stroke="${depColors.SF}"
+              stroke-width="2"
+              fill="none"
+              marker-end="url(#legend-arrowhead-sf)"></path>
+      </svg>
+      <span><strong>SF</strong> (Start -> Finish)</span>
+    </div>
+
+  </div>
+</div>
+
 
           </div>
 
