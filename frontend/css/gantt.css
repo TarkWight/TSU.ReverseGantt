@@ -395,3 +395,60 @@
     overflow: visible;
     flex: 0 0 auto;
 }
+
+/* ===== ReverseGantt: Step 1 — make statuses more distinguishable ===== */
+
+/* 1) NeedsReview: dashed border + subtle warm tint */
+.gantt-task--needsreview {
+    border-style: dashed;
+    border-width: var(--task-border-width, 1px);
+    box-shadow: 0 0 0 1px rgba(253, 126, 20, 0.15) inset;
+}
+
+/* 2) Blocked: keep strong border + add diagonal hatch overlay */
+.gantt-task--blocked {
+    border-width: var(--task-border-width, 2px);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
+.gantt-task--blocked::after {
+    /* hatch overlay on top of bg/progress */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+            135deg,
+            rgba(0, 0, 0, 0.14),
+            rgba(0, 0, 0, 0.14) 6px,
+            rgba(255, 255, 255, 0.00) 6px,
+            rgba(255, 255, 255, 0.00) 12px
+    );
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 2; /* above progress (z=1), below badge (z=3) */
+}
+
+/* 3) Rejected: stronger stripes (already striped) + slight red glow */
+.gantt-task--rejected.gantt-task--striped {
+    box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.18) inset;
+}
+
+/* 4) Done: visually "powered off" */
+.gantt-task--done {
+    opacity: 0.72;
+}
+
+/* 5) Planned: slightly lighter fill so it doesn’t look like InProgress */
+.gantt-task--planned {
+    filter: brightness(1.03);
+}
+
+/* 6) InProgress: add subtle inner ring to separate it from Planned */
+.gantt-task--inprogress {
+    box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.14) inset;
+}
+
+/* 7) Accepted: slightly stronger presence */
+.gantt-task--accepted {
+    box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.12) inset;
+}
