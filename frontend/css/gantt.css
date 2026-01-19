@@ -1,23 +1,75 @@
-/* ===== ReverseGantt: Gantt styles ===== */
+/* ===== ReverseGantt: Gantt styles (clean) ===== */
 
-/* Base bar */
+:root {
+    /* layout */
+    --g-border: #dee2e6;
+    --g-border-2: #adb5bd;
+    --g-bg: #ffffff;
+    --g-panel: #f8f9fa;
+
+    /* text */
+    --g-text: #212529;
+    --g-text-muted: #6c757d;
+    --g-text-meta: #495057;
+
+    /* accents */
+    --g-now: #ffc107;
+    --g-start: #198754;
+    --g-deadline: #dc3545;
+    --g-overflow-bg: rgba(220, 53, 69, 0.10);
+
+    /* task tokens */
+    --task-radius: 3px;
+    --task-progress: #198754;
+
+    /* status palette */
+    --st-planned-border: #6c757d;
+    --st-planned-bg: #e9ecef;
+
+    --st-inprogress-border: #6c757d;
+    --st-inprogress-bg: #e9ecef;
+
+    --st-needsreview-border: #fd7e14;
+    --st-needsreview-bg: #fefefe;
+
+    --st-accepted-border: #198754;
+    --st-accepted-bg: #d1e7dd;
+
+    --st-rejected-border: #dc3545;
+    --st-rejected-bg: #e9ecef;
+
+    --st-blocked-border: #000000;
+    --st-blocked-bg: #e9ecef;
+
+    --st-done-border: #adb5bd;
+    --st-done-bg: #ffffff;
+
+    /* dependency colors */
+    --dep-fs: #6c757d;
+    --dep-ss: #0d6efd;
+    --dep-ff: #6f42c1;
+    --dep-sf: #20c997;
+}
+
+/* ===== Tasks (bars) ===== */
+
 .gantt-task-bar {
-    background: var(--task-bg, #e9ecef);
-    border: var(--task-border-width, 1px) solid var(--task-border, #6c757d);
-    border-radius: 3px;
+    background: var(--task-bg, var(--st-planned-bg));
+    border: var(--task-border-width, 1px) solid var(--task-border, var(--st-planned-border));
+    border-radius: var(--task-radius);
     cursor: pointer;
     position: relative;
     overflow: hidden;
 }
 
-/* Status label next to bar (optional, if you keep it) */
+/* Status label next to bar (optional) */
 .gantt-task-meta {
     font-size: 0.7rem;
     white-space: nowrap;
     padding: 0 2px;
 }
-.gantt-task-meta--status { color: #495057; }
-.gantt-task-meta--progress { color: #6c757d; }
+.gantt-task-meta--status { color: var(--g-text-meta); }
+.gantt-task-meta--progress { color: var(--g-text-muted); }
 
 /* Progress overlay (for inprogress / blocked) */
 .gantt-task-progress {
@@ -25,8 +77,8 @@
     inset: 0;
     width: var(--progress, 0%);
     height: 100%;
-    background: #198754; /* keep as token later */
-    border-radius: 3px;
+    background: var(--task-progress);
+    border-radius: var(--task-radius);
     z-index: 1;
     display: none;
 }
@@ -40,7 +92,7 @@
     right: 2px;
     top: 1px;
     font-size: 0.6rem;
-    color: #495057;
+    color: var(--g-text-meta);
     background: rgba(255, 255, 255, 0.85);
     padding: 1px 3px;
     border-radius: 2px;
@@ -65,60 +117,30 @@
 }
 
 /* Critical */
-.gantt-task--critical {
-    --task-border-width: 3px;
-}
+.gantt-task--critical { --task-border-width: 3px; }
 
 /* Overflow: red border */
-.gantt-task--overflow {
-    --task-border: #dc3545;
-}
+.gantt-task--overflow { --task-border: var(--g-deadline); }
 
-/* ===== Status palette ===== */
-.gantt-task--planned {
-    --task-border: #6c757d;
-    --task-bg: #e9ecef;
-}
+/* ===== Status palette (sets --task-*) ===== */
 
-.gantt-task--inprogress {
-    --task-border: #6c757d;
-    --task-bg: #e9ecef;
-}
-
-.gantt-task--needsreview {
-    --task-border: #fd7e14;
-    --task-bg: #fefefe;
-}
-
-.gantt-task--accepted {
-    --task-border: #198754;
-    --task-bg: #d1e7dd;
-}
-
-.gantt-task--rejected {
-    --task-border: #dc3545;
-    --task-bg: #e9ecef;
-}
-
-.gantt-task--blocked {
-    --task-border: #000000;
-    --task-bg: #e9ecef;
-}
-
-.gantt-task--done {
-    --task-border: #adb5bd;
-    --task-bg: #ffffff;
-}
+.gantt-task--planned    { --task-border: var(--st-planned-border);    --task-bg: var(--st-planned-bg); }
+.gantt-task--inprogress { --task-border: var(--st-inprogress-border); --task-bg: var(--st-inprogress-bg); }
+.gantt-task--needsreview{ --task-border: var(--st-needsreview-border);--task-bg: var(--st-needsreview-bg); }
+.gantt-task--accepted   { --task-border: var(--st-accepted-border);   --task-bg: var(--st-accepted-bg); }
+.gantt-task--rejected   { --task-border: var(--st-rejected-border);   --task-bg: var(--st-rejected-bg); }
+.gantt-task--blocked    { --task-border: var(--st-blocked-border);    --task-bg: var(--st-blocked-bg); }
+.gantt-task--done       { --task-border: var(--st-done-border);       --task-bg: var(--st-done-bg); }
 
 /* ===== Layout / containers ===== */
 
 .gantt-wrapper {
     display: flex;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--g-border);
 }
 
 .gantt-task-list {
-    background: #f8f9fa;
+    background: var(--g-panel);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -128,8 +150,8 @@
 .gantt-task-list-header {
     padding: 8px;
     font-weight: 600;
-    border-bottom: 1px solid #dee2e6;
-    background: #fff;
+    border-bottom: 1px solid var(--g-border);
+    background: var(--g-bg);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -159,20 +181,16 @@
     white-space: nowrap;
 }
 
-.gantt-task-item {
-    padding-bottom: 0;
-}
-
 .gantt-resizer {
     position: absolute;
     right: 0;
     top: 0;
     bottom: 0;
     width: 4px;
-    background: #dee2e6;
+    background: var(--g-border);
     cursor: col-resize;
     z-index: 20;
-    border-right: 1px solid #adb5bd;
+    border-right: 1px solid var(--g-border-2);
 }
 
 .gantt-grid-wrapper {
@@ -185,8 +203,8 @@
 .gantt-header {
     position: relative;
     z-index: 10;
-    background: #fff;
-    border-bottom: 2px solid #dee2e6;
+    background: var(--g-bg);
+    border-bottom: 2px solid var(--g-border);
 }
 
 .gantt-header-row {
@@ -195,53 +213,60 @@
 }
 
 /* ===== Time header cells ===== */
+
 .gantt-time-cell {
     position: absolute;
     top: 0;
     height: 100%;
     padding: 8px;
     text-align: center;
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--g-border);
     font-size: 0.85rem;
-    background: #f8f9fa;
+    background: var(--g-panel);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 /* ===== Grid body wrapper ===== */
+
 .gantt-grid-body {
     position: relative;
 }
 
 /* ===== Vertical lines ===== */
+
 .gantt-time-division {
     position: absolute;
     top: 0;
     width: 1px;
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid var(--g-border);
     pointer-events: none;
 }
 
-/* Now (header + body) */
-.gantt-now-line-header,
-.gantt-now-line {
+/* ===== Vertical markers (now/start/deadline) ===== */
+
+.gantt-vline {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 3px;
-    background: #ffc107;
     pointer-events: none;
+}
+
+.gantt-now-line-header,
+.gantt-now-line {
+    width: 3px;
+    background: var(--g-now);
     box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
 }
 
 .gantt-now-line-header { z-index: 12; }
-.gantt-now-line { z-index: 6; }
+.gantt-now-line        { z-index: 6;  }
 
 .gantt-now-label {
     position: absolute;
     top: 2px;
-    background: #ffc107;
+    background: var(--g-now);
     color: #000;
     padding: 2px 6px;
     border-radius: 3px;
@@ -252,26 +277,18 @@
     white-space: nowrap;
 }
 
-/* Project start */
 .gantt-start-line {
-    position: absolute;
-    top: 0;
-    bottom: 0;
     width: 2px;
-    background: #198754;
+    background: var(--g-start);
     z-index: 4;
     pointer-events: none;
 }
 
-/* Deadline */
 .gantt-deadline-line {
-    position: absolute;
-    top: 0;
-    bottom: 0;
     width: 2px;
     z-index: 4;
     pointer-events: none;
-    border-left: 2px dashed #dc3545;
+    border-left: 2px dashed var(--g-deadline);
     background: transparent;
 }
 
@@ -279,12 +296,13 @@
 .gantt-overflow-area {
     position: absolute;
     top: 0;
-    background: rgba(220, 53, 69, 0.1);
+    background: var(--g-overflow-bg);
     z-index: 1;
     pointer-events: none;
 }
 
 /* ===== Dependencies overlay ===== */
+
 .gantt-deps-overlay {
     position: absolute;
     left: 0;
@@ -301,23 +319,27 @@
     stroke-linecap: round;
 }
 
-/* Типы зависимостей = цвет */
-.gantt-dep--fs { color: #6c757d; } /* gray */
-.gantt-dep--ss { color: #0d6efd; } /* blue */
-.gantt-dep--ff { color: #6f42c1; } /* purple */
-.gantt-dep--sf { color: #20c997; } /* teal */
+/* Types = color via currentColor */
+.gantt-dep--fs { color: var(--dep-fs); }
+.gantt-dep--ss { color: var(--dep-ss); }
+.gantt-dep--ff { color: var(--dep-ff); }
+.gantt-dep--sf { color: var(--dep-sf); }
 
 /* ===== Legend ===== */
+
 .gantt-legend-sample {
     width: 40px;
     height: 20px;
-    border-radius: 3px;
+    border-radius: var(--task-radius);
     margin-right: 10px;
     position: relative;
     flex: 0 0 auto;
+
+    /* allow reuse of task variables in legend samples */
+    background: var(--task-bg, var(--st-planned-bg));
+    border: var(--task-border-width, 1px) solid var(--task-border, var(--st-planned-border));
 }
 
-/* Прогресс-демо (50%) */
 .gantt-legend-sample--progress::before {
     content: "";
     position: absolute;
@@ -325,18 +347,17 @@
     top: 0;
     width: 50%;
     height: 100%;
-    background: #198754;
-    border-radius: 3px 0 0 3px;
+    background: var(--task-progress);
+    border-radius: var(--task-radius) 0 0 var(--task-radius);
     z-index: 1;
 }
 
-/* Badge в легенде */
 .gantt-legend-badge {
     position: absolute;
     right: 2px;
     top: 1px;
     font-size: 0.5rem;
-    color: #495057;
+    color: var(--g-text-meta);
     background: rgba(255,255,255,0.85);
     padding: 1px 2px;
     border-radius: 2px;
@@ -344,36 +365,29 @@
     pointer-events: none;
 }
 
-/* Critical sample */
-.gantt-legend-sample--critical {
-    --task-border-width: 3px;
-}
-
-/* “Линии” в легенде */
+/* “Lines” in legend */
 .gantt-legend-line {
-    width: 3px;
     height: 30px;
     margin-right: 10px;
     flex: 0 0 auto;
 }
 
 .gantt-legend-line--now {
-    background: #ffc107;
+    width: 3px;
+    background: var(--g-now);
     box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
 }
-
 .gantt-legend-line--start {
     width: 2px;
-    background: #198754;
+    background: var(--g-start);
 }
-
 .gantt-legend-line--deadline {
     width: 2px;
     background: transparent;
-    border-left: 2px dashed #dc3545;
+    border-left: 2px dashed var(--g-deadline);
 }
 
-/* SVG стрелки в легенде */
+/* SVG arrows in legend */
 .gantt-legend-dep {
     width: 44px;
     height: 16px;

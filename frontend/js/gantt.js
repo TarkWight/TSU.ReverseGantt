@@ -332,7 +332,8 @@ Object.assign(app, {
       <defs>
         <marker id="gantt-arrowhead" markerWidth="10" markerHeight="10"
                 refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+          <!-- SVG2: arrowhead inherits the stroke color of the path via context-stroke -->
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
         </marker>
       </defs>
   `;
@@ -562,18 +563,23 @@ Object.assign(app, {
                 <div class="d-flex align-items-center mb-2">
                   <svg class="gantt-legend-dep gantt-dep--fs" viewBox="0 0 44 16">
                     <defs>
-                      <marker id="legend-arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+                      <marker id="legend-arrowhead-fs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
                       </marker>
                     </defs>
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead)"></path>
+                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-fs)"></path>
                   </svg>
                   <span><strong>FS</strong> (Finish -> Start)</span>
                 </div>
 
                 <div class="d-flex align-items-center mb-2">
                   <svg class="gantt-legend-dep gantt-dep--ss" viewBox="0 0 44 16">
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead)"></path>
+                    <defs>
+                      <marker id="legend-arrowhead-ss" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
+                      </marker>
+                    </defs>
+                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-ss)"></path>
                   </svg>
                   <span><strong>SS</strong> (Start -> Start)</span>
                 </div>
@@ -582,14 +588,24 @@ Object.assign(app, {
               <div class="col-md-6">
                 <div class="d-flex align-items-center mb-2">
                   <svg class="gantt-legend-dep gantt-dep--ff" viewBox="0 0 44 16">
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead)"></path>
+                    <defs>
+                      <marker id="legend-arrowhead-ff" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
+                      </marker>
+                    </defs>
+                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-ff)"></path>
                   </svg>
                   <span><strong>FF</strong> (Finish -> Finish)</span>
                 </div>
 
                 <div class="d-flex align-items-center mb-2">
                   <svg class="gantt-legend-dep gantt-dep--sf" viewBox="0 0 44 16">
-                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead)"></path>
+                    <defs>
+                      <marker id="legend-arrowhead-sf" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" stroke="context-stroke"></path>
+                      </marker>
+                    </defs>
+                    <path d="M 0 8 L 38 8" marker-end="url(#legend-arrowhead-sf)"></path>
                   </svg>
                   <span><strong>SF</strong> (Start -> Finish)</span>
                 </div>
