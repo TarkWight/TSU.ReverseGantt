@@ -15,14 +15,14 @@ Object.assign(app, {
         await this.renderGanttChart(tasks);
     },
 
-    async renderGanttChart(tasks) {
+    renderGanttChart: async function (tasks) {
         try {
-        const container = document.getElementById('gantt-container');
-        if (!container) return;
-        if (!tasks || tasks.length === 0) {
-            container.innerHTML = '<p class="text-muted">No tasks to display</p>';
-            return;
-        }
+            const container = document.getElementById('gantt-container');
+            if (!container) return;
+            if (!tasks || tasks.length === 0) {
+                container.innerHTML = '<p class="text-muted">No tasks to display</p>';
+                return;
+            }
 
             let projectStartDate = null;
             let projectDueDate = null;
@@ -30,12 +30,12 @@ Object.assign(app, {
                 try {
                     const project = await api.getProject(this.currentProjectId);
                     if (project.startDate) {
-                        const dateStr = project.startDate.split('T')[0]; // "YYYY-MM-DD"
+                        const dateStr = project.startDate.split('T')[0];
                         const [year, month, day] = dateStr.split('-').map(Number);
                         projectStartDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
                     }
                     if (project.dueDate) {
-                        const dateStr = project.dueDate.split('T')[0]; // "YYYY-MM-DD"
+                        const dateStr = project.dueDate.split('T')[0];
                         const [year, month, day] = dateStr.split('-').map(Number);
                         projectDueDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
                     }
@@ -44,28 +44,28 @@ Object.assign(app, {
                 }
             }
 
-        const taskDataPromises = tasks.map(async (task) => {
-            let ownerName = 'Unassigned';
+            const taskDataPromises = tasks.map(async (task) => {
+                let ownerName = 'Unassigned';
                 let ownerId = null;
-            
-            try {
-                const assignments = await api.getTaskAssignments(task.id);
-                const ownerAssignment = assignments.find(a => a.role === 'owner');
-                if (ownerAssignment) {
+
+                try {
+                    const assignments = await api.getTaskAssignments(task.id);
+                    const ownerAssignment = assignments.find(a => a.role === 'owner');
+                    if (ownerAssignment) {
                         ownerId = ownerAssignment.userId;
-                    const user = await api.getUser(ownerAssignment.userId);
-                    ownerName = user.name;
+                        const user = await api.getUser(ownerAssignment.userId);
+                        ownerName = user.name;
+                    }
+                } catch (error) {
+                    console.error(`Failed to load owner for task ${task.id}:`, error);
                 }
-            } catch (error) {
-                console.error(`Failed to load owner for task ${task.id}:`, error);
-            }
-            
-                return { task, ownerName, ownerId };
+
+                return {task, ownerName, ownerId};
             });
-            
+
             const tasksWithData = await Promise.all(taskDataPromises);
 
-            const hasSchedule = tasksWithData.some(({ task }) => {
+            const hasSchedule = tasksWithData.some(({task}) => {
                 return task.schedule && task.schedule.ls && task.schedule.lf;
             });
 
@@ -75,20 +75,20 @@ Object.assign(app, {
             }
 
             const items = tasksWithData
-                .map(({ task, ownerName, ownerId }) => {
+                .map(({task, ownerName, ownerId}) => {
                     const ls = task.schedule && task.schedule.ls;
                     const lf = task.schedule && task.schedule.lf;
                     if (!ls || !lf) return null;
-                    
+
                     const lsDate = new Date(ls);
                     const lfDate = new Date(lf);
                     if (isNaN(lsDate.getTime()) || isNaN(lfDate.getTime())) return null;
-                    
-                    return { 
-                        task, 
-                        ownerName, 
-                        ownerId, 
-                        ls: lsDate, 
+
+                    return {
+                        task,
+                        ownerName,
+                        ownerId,
+                        ls: lsDate,
                         lf: lfDate,
                         isCritical: task.schedule && task.schedule.isCritical,
                         slack: task.schedule && task.schedule.slack
@@ -96,13 +96,11 @@ Object.assign(app, {
                 })
                 .filter(Boolean);
 
-        if (items.length === 0) {
+            if (items.length === 0) {
                 container.innerHTML = '<p class="text-muted">Schedule not calculated. Click \'Calculate Reverse Schedule\'.</p>';
-            return;
-        }
+                return;
+            }
 
-            // Load dependencies for all tasks (N+1 via existing API; keep data flow intact)
-            // Result is used only for visualization (no schedule recomputation).
             const dependencyLists = await Promise.all(
                 items.map(i => api.getDependencies(i.task.id).catch(() => []))
             );
@@ -117,33 +115,33 @@ Object.assign(app, {
             const minTime = projectStartDate && projectStartDate.getTime() < minTaskTime.getTime()
                 ? projectStartDate
                 : minTaskTime;
-            
+
             const maxTime = new Date(Math.max(...items.map(i => i.lf.getTime())));
             const gridEnd = projectDueDate && projectDueDate.getTime() > maxTime.getTime()
-                ? projectDueDate 
+                ? projectDueDate
                 : maxTime;
-            
+
             const rangeMs = gridEnd.getTime() - minTime.getTime();
             const rangeHours = rangeMs / (1000 * 60 * 60);
-            
+
             let timeDivisionHours;
-            let pxPerHour; // Пикселей на час
-            
+            let pxPerHour;
+
             if (rangeHours <= 12) {
                 timeDivisionHours = 1;
-                pxPerHour = 60; // 1 hour = 60px
-            } else if (rangeHours <= 48) { // 2 days
+                pxPerHour = 60;
+            } else if (rangeHours <= 48) {
                 timeDivisionHours = 6;
-                pxPerHour = 40; // 1 hour = 40px
-            } else if (rangeHours <= 168) { // 7 days
+                pxPerHour = 40;
+            } else if (rangeHours <= 168) {
                 timeDivisionHours = 12;
-                pxPerHour = 30; // 1 hour = 30px
+                pxPerHour = 30;
             } else {
                 timeDivisionHours = 24;
-                pxPerHour = 20; // 1 hour = 20px
+                pxPerHour = 20;
             }
-            
-            const pxPerMs = pxPerHour / (1000 * 60 * 60); // Пикселей на миллисекунду
+
+            const pxPerMs = pxPerHour / (1000 * 60 * 60);
             const timeDivisionMs = timeDivisionHours * 60 * 60 * 1000;
 
             const gridStart = new Date(minTime);
@@ -157,7 +155,7 @@ Object.assign(app, {
 
             const timeGrid = [];
             let currentTime = new Date(gridStart);
-            
+
             while (currentTime <= gridEnd) {
                 timeGrid.push(new Date(currentTime));
                 currentTime = new Date(currentTime.getTime() + timeDivisionMs);
@@ -166,11 +164,9 @@ Object.assign(app, {
                 timeGrid.push(new Date(gridEnd));
             }
 
-            const divisionWidthPx = timeDivisionHours * pxPerHour;
             const totalGridWidth = timeToPx(gridEnd);
 
-            // Row sizing: give more vertical room for dependency arrows (they route through the row gaps)
-            const rowHeight = 34;
+            let rowHeight = 34;
             const rowGap = 14;
             const taskRowHeight = rowHeight + rowGap;
             const totalRows = items.length;
@@ -187,60 +183,75 @@ Object.assign(app, {
             html += `<div id="gantt-task-list" class="gantt-task-list" style="width: ${taskListWidth}px; background: #f8f9fa; flex-shrink: 0; display: flex; flex-direction: column; position: relative;">`;
             html += `<div style="padding: 8px; font-weight: 600; border-bottom: 1px solid #dee2e6; background: white; flex-shrink: 0; height: ${headerHeight}px; display: flex; align-items: center;">Tasks</div>`;
             html += `<div style="position: relative; height: ${gridHeight}px; overflow-y: auto;">`;
-            
+
             items.forEach((item, rowIndex) => {
                 html += `<div class="gantt-task-item" style="position: absolute; top: ${rowIndex * taskRowHeight}px; left: 0; right: 0; height: ${rowHeight}px; padding: 4px 8px; border-bottom: ${rowGap}px solid transparent; cursor: pointer; display: flex; align-items: center;" onclick="app.showTaskDetails('${item.task.id}')">`;
                 html += `<div style="font-weight: 500; font-size: 0.85rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(item.task.name)}</div>`;
                 html += `</div>`;
             });
-            
+
             html += '</div>';
             html += `<div id="gantt-resizer" class="gantt-resizer" style="position: absolute; right: 0; top: 0; bottom: 0; width: 4px; background: #dee2e6; cursor: col-resize; z-index: 20; border-right: 1px solid #adb5bd;"></div>`;
             html += '</div>';
 
             html += `<div id="gantt-grid-wrapper" class="gantt-grid-wrapper" style="flex: 1; overflow-x: auto; position: relative; min-width: 0;">`;
-            
+
             html += `<div class="gantt-header" style="position: relative; z-index: 10; background: white; border-bottom: 2px solid #dee2e6; height: ${headerHeight}px; width: ${totalGridWidth}px;">`;
             html += `<div class="gantt-header-row" style="position: relative; height: 100%;">`;
-            
+
             timeGrid.forEach((time, index) => {
                 if (index === timeGrid.length - 1) return;
                 const leftPx = timeToPx(time);
                 const rightPx = timeToPx(timeGrid[index + 1]);
                 const width = Math.max(1, rightPx - leftPx);
-                const timeLabel = this.formatTimeLabel(time, timeDivisionHours);
-                html += `<div style="position: absolute; left: ${leftPx}px; top: 0; width: ${width}px; height: 100%; padding: 8px; text-align: center; border-right: 1px solid #dee2e6; font-size: 0.85rem; background: #f8f9fa; display: flex; align-items: center; justify-content: center;">${this.escapeHtml(timeLabel)}</div>`;
+                html += `<div style="position: absolute;
+                left: ${
+                        leftPx
+                }px;
+                top: 0;
+                width: ${width}px;
+                height: 100%;
+                padding: 8px;
+                text-align: center;
+                border-right: 1px solid #dee2e6;
+                font-size: 0.85rem;
+                background: #f8f9fa;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                ">$ {
+                    this.escapeHtml(timeLabel)
+                }</div>`;
             });
-            
+
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
-                const nowLabel = `Now ${this.formatLocal(now, { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                const nowLabel = `Now ${this.formatLocal(now, {hour: '2-digit', minute: '2-digit', hour12: false})}`;
                 html += `<div class="gantt-now-line-header" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 3px; background: #ffc107; z-index: 12; pointer-events: none; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);"></div>`;
                 html += `<div class="gantt-now-label" style="position: absolute; left: ${Math.max(0, nowPx - 35)}px; top: 2px; background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 700; z-index: 13; pointer-events: none; white-space: nowrap;">${this.escapeHtml(nowLabel)}</div>`;
             }
-            
+
             html += '</div>';
             html += '</div>';
 
             html += `<div class="gantt-grid-body" style="position: relative; height: ${gridHeight}px; width: ${totalGridWidth}px;">`;
-            
+
             if (projectStartDate && projectStartDate.getTime() >= minTime.getTime() && projectStartDate.getTime() <= gridEnd.getTime()) {
                 const startPx = timeToPx(projectStartDate);
                 html += `<div class="gantt-start-line" style="position: absolute; left: ${startPx}px; top: 0; bottom: 0; width: 2px; background: #198754; z-index: 4; pointer-events: none; border-left: 2px solid #198754;"></div>`;
             }
-            
+
             if (projectStartDate && projectStartDate.getTime() >= minTime.getTime()) {
-                const startPx = timeToPx(projectStartDate);
-                const overflowWidth = startPx;
+                const overflowWidth = timeToPx(projectStartDate);
                 if (overflowWidth > 0) {
                     html += `<div class="gantt-overflow-area" style="position: absolute; left: 0; top: 0; width: ${overflowWidth}px; height: ${gridHeight}px; background: rgba(220, 53, 69, 0.1); z-index: 1; pointer-events: none;"></div>`;
                 }
             }
-            
+
             if (projectDueDate && projectDueDate.getTime() <= gridEnd.getTime()) {
                 const deadlinePx = timeToPx(projectDueDate);
                 html += `<div class="gantt-deadline-line" style="position: absolute; left: ${deadlinePx}px; top: 0; bottom: 0; width: 2px; background: #dc3545; z-index: 4; pointer-events: none; border-left: 2px dashed #dc3545;"></div>`;
             }
-            
+
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
                 html += `<div class="gantt-now-line" style="position: absolute; left: ${nowPx}px; top: 0; bottom: 0; width: 3px; background: #ffc107; z-index: 6; pointer-events: none; box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);"></div>`;
             }
@@ -251,19 +262,18 @@ Object.assign(app, {
                 html += `<div class="gantt-time-division" style="position: absolute; left: ${left}px; top: 0; width: 1px; height: ${gridHeight}px; border-right: 1px solid #dee2e6; pointer-events: none;"></div>`;
             });
 
-            // First pass: compute bar geometry + render task bars; keep positions for dependency routing
-            const barPos = new Map(); // taskId -> { left, right, top, bottom, midY, rowIndex }
+            const barPos = new Map();
             let taskBarsHtml = '';
 
             items.forEach((item, rowIndex) => {
                 const leftRaw = timeToPx(item.ls);
                 const rightRaw = timeToPx(item.lf);
                 const top = rowIndex * taskRowHeight;
-                
+
                 const isOverflow = projectStartDate && item.ls.getTime() < projectStartDate.getTime();
-                
+
                 const clampedRight = Math.min(rightRaw, totalGridWidth);
-                const clampedLeft = Math.max(0, leftRaw); // visually clipped at left edge
+                const clampedLeft = Math.max(0, leftRaw);
                 const left = clampedLeft;
                 const width = Math.max(2, clampedRight - clampedLeft);
                 const right = left + width;
@@ -276,17 +286,17 @@ Object.assign(app, {
                     midY: top + (rowHeight / 2),
                     rowIndex
                 });
-                
+
                 const status = (item.task.status || '').toLowerCase();
                 const progress = item.task.progress || 0;
                 const statusLabel = this.humanizeEnum(item.task.status);
-                
-                let borderColor = '#6c757d'; // Planned default
+
+                let borderColor = '#6c757d';
                 let bgColor = '#e9ecef';
                 let fillStyle = 'solid';
                 let showProgress = false;
                 let badgeText = null;
-                
+
                 if (status === 'planned') {
                     borderColor = '#6c757d';
                     bgColor = '#e9ecef';
@@ -314,13 +324,13 @@ Object.assign(app, {
                     borderColor = '#adb5bd';
                     bgColor = '#ffffff';
                 }
-                
+
                 if (isOverflow) {
-                    borderColor = '#dc3545'; // overflow overlays status border
+                    borderColor = '#dc3545';
                 }
-                
+
                 const borderWidth = item.isCritical ? '3px' : '1px';
-                
+
                 taskBarsHtml += `<div class="gantt-task-bar-wrapper" style="position: absolute; left: ${left}px; top: ${top}px; z-index: 3; display: flex; align-items: center; gap: 4px;">`;
                 taskBarsHtml += `<div class="gantt-task-bar" style="width: ${width}px; height: ${rowHeight}px; background: ${bgColor}; border: ${borderWidth} solid ${borderColor}; border-radius: 3px; cursor: pointer; position: relative;" onclick="app.showTaskDetails('${item.task.id}')" title="${this.escapeHtml(item.task.name)} - ${this.escapeHtml(item.ownerName)}${isOverflow ? ' (Overflow)' : ''}">`;
                 if (showProgress && progress > 0) {
@@ -338,7 +348,6 @@ Object.assign(app, {
                 taskBarsHtml += `</div>`;
             });
 
-            // Dependencies overlay (orthogonal arrows)
             if (allDeps.length > 0) {
                 let depsSvg = `<svg class="gantt-deps-overlay" width="${totalGridWidth}" height="${gridHeight}" viewBox="0 0 ${totalGridWidth} ${gridHeight}" style="position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; overflow: visible;">`;
                 depsSvg += `
@@ -361,10 +370,9 @@ Object.assign(app, {
                 const getFromId = (dep) => dep.fromTaskId || dep.from_task_id;
                 const getToId = (dep) => dep.toTaskId || dep.to_task_id;
 
-                // Lane allocation to reduce overlaps: we offset the vertical trunk in X (not Y)
                 const laneByKey = new Map();
                 const laneCount = 8;
-                const laneStepX = 10; // px separation between parallel vertical trunks
+                const laneStepX = 10;
                 let laneCursor = 0;
 
                 allDeps.forEach(dep => {
@@ -377,22 +385,18 @@ Object.assign(app, {
 
                     const depType = (dep.depType || dep.dep_type || 'FS').toUpperCase();
 
-                    // Dependency visual styling (color only; geometry unchanged)
                     const depStyleMap = {
-                        FS: { color: '#6c757d', marker: 'gantt-arrowhead-fs' }, // gray
-                        SS: { color: '#0d6efd', marker: 'gantt-arrowhead-ss' }, // blue
-                        FF: { color: '#6f42c1', marker: 'gantt-arrowhead-ff' }, // purple
-                        SF: { color: '#20c997', marker: 'gantt-arrowhead-sf' }  // teal
+                        FS: {color: '#6c757d', marker: 'gantt-arrowhead-fs'},
+                        SS: {color: '#0d6efd', marker: 'gantt-arrowhead-ss'},
+                        FF: {color: '#6f42c1', marker: 'gantt-arrowhead-ff'},
+                        SF: {color: '#20c997', marker: 'gantt-arrowhead-sf'}
                     };
                     const depStyle = depStyleMap[depType] || depStyleMap.FS;
 
-                    // Map dependency type to which edge to connect:
-                    // S = left edge, F = right edge
                     const fromSide = depType[0] === 'F' ? 'right' : 'left';
                     const toSide = depType[1] === 'F' ? 'right' : 'left';
-                    const sameSide = fromSide === toSide; // L->L or R->R => GVG, otherwise GVGVG
+                    const sameSide = fromSide === toSide;
 
-                    // Lane selection (deterministic per edge)
                     const key = `${fromId}->${toId}`;
                     if (!laneByKey.has(key)) {
                         laneByKey.set(key, laneCursor % laneCount);
@@ -401,58 +405,44 @@ Object.assign(app, {
                     const lane = laneByKey.get(key);
                     const laneOffsetX = (lane - Math.floor(laneCount / 2)) * laneStepX;
 
-                    // Exit/entry Y in the row gaps to avoid drawing over bars or their labels.
                     const gap = rowGap / 2;
                     const goingDown = to.rowIndex > from.rowIndex;
                     const fromGapY = goingDown ? (from.bottom + gap) : (from.top - gap);
-                    // We always "dock" into the target at its midY (clean entry point).
-                    // This keeps the arrowhead aligned and avoids crooked-looking joins.
                     const toEntryY = to.midY;
 
-                    // Anchor at the selected bar edges (touch bar at midY)
                     const fromEdgeX = fromSide === 'right' ? from.right : from.left;
                     const toEdgeX = toSide === 'right' ? to.right : to.left;
-                    const fromDir = fromSide === 'right' ? 1 : -1; // outward direction from source edge
+                    const fromDir = fromSide === 'right' ? 1 : -1;
 
-                    // Trunk X: outside both bars, plus lane offset, so the vertical segment stays in free space.
-                    // Note: arrows are visual; they may go beyond the project (grid) bounds.
                     const baseTrunkPad = 24;
                     let trunkX;
                     if (fromSide === 'right') {
                         const rightMost = Math.max(from.right, to.right);
-                        // spread lanes outward (to the right) so they don't drift toward bars
                         trunkX = rightMost + baseTrunkPad + Math.abs(laneOffsetX);
                     } else {
                         const leftMost = Math.min(from.left, to.left);
-                        // spread lanes outward (to the left)
                         trunkX = leftMost - baseTrunkPad - Math.abs(laneOffsetX);
                     }
 
-                    // Small horizontal "breathing room" so sequential tasks have space for the elbow.
-                    // Note: We intentionally end the arrow at the target edge in the row gap (not midY),
-                    // to avoid drawing over the task bar itself.
                     const padOut = 10;
                     const fromOutX = fromEdgeX + (fromDir * padOut);
 
                     let d;
                     if (sameSide) {
-                        // GVG: same edge -> same edge (L->L or R->R)
-                        // Start at edge midY, go outward to trunk, vertical to target row gap, then into target edge in gap.
                         d = [
-                            `M ${fromEdgeX} ${from.midY}`,  // start at source edge
-                            `L ${trunkX} ${from.midY}`,     // G (outward, no overlap with bar)
-                            `L ${trunkX} ${toEntryY}`,      // V
-                            `L ${toEdgeX} ${toEntryY}`      // G (arrowhead at target edge midY)
+                            `M ${fromEdgeX} ${from.midY}`,
+                            `L ${trunkX} ${from.midY}`,
+                            `L ${trunkX} ${toEntryY}`,
+                            `L ${toEdgeX} ${toEntryY}`
                         ].join(' ');
                     } else {
-                        // GVGVG: different edges (L->R or R->L), route via row gaps to avoid crossing bars
                         d = [
-                            `M ${fromEdgeX} ${from.midY}`,  // start at source edge
-                            `L ${fromOutX} ${from.midY}`,   // G
-                            `L ${fromOutX} ${fromGapY}`,    // V
-                            `L ${trunkX} ${fromGapY}`,      // G
-                            `L ${trunkX} ${toEntryY}`,      // V
-                            `L ${toEdgeX} ${toEntryY}`      // G (arrowhead at target edge midY)
+                            `M ${fromEdgeX} ${from.midY}`,
+                            `L ${fromOutX} ${from.midY}`,
+                            `L ${fromOutX} ${fromGapY}`,
+                            `L ${trunkX} ${fromGapY}`,
+                            `L ${trunkX} ${toEntryY}`,
+                            `L ${toEdgeX} ${toEntryY}`
                         ].join(' ');
                     }
 
@@ -463,15 +453,14 @@ Object.assign(app, {
                 html += depsSvg;
             }
 
-            // Render task bars on top of dependency arrows
             html += taskBarsHtml;
 
-            html += '</div>'; // Конец тела грида
-            html += '</div>'; // Конец обёртки грида
-            html += '</div>'; // Конец всей обёртки
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
 
             container.innerHTML = html;
-            
+
             this.initGanttResizer();
         } catch (error) {
             console.error('Error rendering Gantt chart:', error);
@@ -484,17 +473,6 @@ Object.assign(app, {
 
     formatLocal(date, opts) {
         return new Intl.DateTimeFormat('en-GB', { ...opts }).format(date);
-    },
-
-    formatTimeLabel(date, divisionHours) {
-        if (divisionHours === 1) {
-            return this.formatLocal(date, { hour: '2-digit', minute: '2-digit', hour12: false });
-        } else if (divisionHours === 6 || divisionHours === 12) {
-            return this.formatLocal(date, { day: '2-digit', month: 'short' }) + ' ' +
-                   this.formatLocal(date, { hour: '2-digit', minute: '2-digit', hour12: false });
-        } else {
-            return this.formatLocal(date, { day: '2-digit', month: 'short', year: 'numeric' });
-        }
     },
 
     initGanttResizer() {
@@ -531,9 +509,8 @@ Object.assign(app, {
                 isResizing = false;
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
-                
-                const newWidth = taskList.offsetWidth;
-                this.ganttTaskListWidth = newWidth;
+
+                this.ganttTaskListWidth = taskList.offsetWidth;
                 
                 const tasks = this.currentProjectTasks || [];
                 await this.renderGanttChart(tasks);
