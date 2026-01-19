@@ -1,0 +1,388 @@
+/* ===== ReverseGantt: Gantt styles ===== */
+
+/* Base bar */
+.gantt-task-bar {
+    background: var(--task-bg, #e9ecef);
+    border: var(--task-border-width, 1px) solid var(--task-border, #6c757d);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Status label next to bar (optional, if you keep it) */
+.gantt-task-meta {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    padding: 0 2px;
+}
+.gantt-task-meta--status { color: #495057; }
+.gantt-task-meta--progress { color: #6c757d; }
+
+/* Progress overlay (for inprogress / blocked) */
+.gantt-task-progress {
+    position: absolute;
+    inset: 0;
+    width: var(--progress, 0%);
+    height: 100%;
+    background: #198754; /* keep as token later */
+    border-radius: 3px;
+    z-index: 1;
+    display: none;
+}
+.gantt-task--has-progress .gantt-task-progress {
+    display: block;
+}
+
+/* Badge (Review / Blocked) */
+.gantt-task-badge {
+    position: absolute;
+    right: 2px;
+    top: 1px;
+    font-size: 0.6rem;
+    color: #495057;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 1px 3px;
+    border-radius: 2px;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Stripes (Rejected) */
+.gantt-task--striped::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 4px,
+            rgba(0, 0, 0, 0.10) 4px,
+            rgba(0, 0, 0, 0.10) 8px
+    );
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Critical */
+.gantt-task--critical {
+    --task-border-width: 3px;
+}
+
+/* Overflow: red border */
+.gantt-task--overflow {
+    --task-border: #dc3545;
+}
+
+/* ===== Status palette ===== */
+.gantt-task--planned {
+    --task-border: #6c757d;
+    --task-bg: #e9ecef;
+}
+
+.gantt-task--inprogress {
+    --task-border: #6c757d;
+    --task-bg: #e9ecef;
+}
+
+.gantt-task--needsreview {
+    --task-border: #fd7e14;
+    --task-bg: #fefefe;
+}
+
+.gantt-task--accepted {
+    --task-border: #198754;
+    --task-bg: #d1e7dd;
+}
+
+.gantt-task--rejected {
+    --task-border: #dc3545;
+    --task-bg: #e9ecef;
+}
+
+.gantt-task--blocked {
+    --task-border: #000000;
+    --task-bg: #e9ecef;
+}
+
+.gantt-task--done {
+    --task-border: #adb5bd;
+    --task-bg: #ffffff;
+}
+
+/* ===== Layout / containers ===== */
+
+.gantt-wrapper {
+    display: flex;
+    border: 1px solid #dee2e6;
+}
+
+.gantt-task-list {
+    background: #f8f9fa;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.gantt-task-list-header {
+    padding: 8px;
+    font-weight: 600;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.gantt-task-list-body {
+    position: relative;
+    overflow-y: auto;
+}
+
+.gantt-task-item {
+    position: absolute;
+    left: 0;
+    right: 0;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.gantt-task-item-title {
+    font-weight: 500;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gantt-task-item {
+    padding-bottom: 0;
+}
+
+.gantt-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #dee2e6;
+    cursor: col-resize;
+    z-index: 20;
+    border-right: 1px solid #adb5bd;
+}
+
+.gantt-grid-wrapper {
+    flex: 1;
+    overflow-x: auto;
+    position: relative;
+    min-width: 0;
+}
+
+.gantt-header {
+    position: relative;
+    z-index: 10;
+    background: #fff;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.gantt-header-row {
+    position: relative;
+    height: 100%;
+}
+
+/* ===== Time header cells ===== */
+.gantt-time-cell {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    padding: 8px;
+    text-align: center;
+    border-right: 1px solid #dee2e6;
+    font-size: 0.85rem;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== Grid body wrapper ===== */
+.gantt-grid-body {
+    position: relative;
+}
+
+/* ===== Vertical lines ===== */
+.gantt-time-division {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    border-right: 1px solid #dee2e6;
+    pointer-events: none;
+}
+
+/* Now (header + body) */
+.gantt-now-line-header,
+.gantt-now-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #ffc107;
+    pointer-events: none;
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
+}
+
+.gantt-now-line-header { z-index: 12; }
+.gantt-now-line { z-index: 6; }
+
+.gantt-now-label {
+    position: absolute;
+    top: 2px;
+    background: #ffc107;
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    z-index: 13;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* Project start */
+.gantt-start-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #198754;
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* Deadline */
+.gantt-deadline-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    z-index: 4;
+    pointer-events: none;
+    border-left: 2px dashed #dc3545;
+    background: transparent;
+}
+
+/* Overflow area */
+.gantt-overflow-area {
+    position: absolute;
+    top: 0;
+    background: rgba(220, 53, 69, 0.1);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ===== Dependencies overlay ===== */
+.gantt-deps-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.gantt-dep-path {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+/* Типы зависимостей = цвет */
+.gantt-dep--fs { color: #6c757d; } /* gray */
+.gantt-dep--ss { color: #0d6efd; } /* blue */
+.gantt-dep--ff { color: #6f42c1; } /* purple */
+.gantt-dep--sf { color: #20c997; } /* teal */
+
+/* ===== Legend ===== */
+.gantt-legend-sample {
+    width: 40px;
+    height: 20px;
+    border-radius: 3px;
+    margin-right: 10px;
+    position: relative;
+    flex: 0 0 auto;
+}
+
+/* Прогресс-демо (50%) */
+.gantt-legend-sample--progress::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: #198754;
+    border-radius: 3px 0 0 3px;
+    z-index: 1;
+}
+
+/* Badge в легенде */
+.gantt-legend-badge {
+    position: absolute;
+    right: 2px;
+    top: 1px;
+    font-size: 0.5rem;
+    color: #495057;
+    background: rgba(255,255,255,0.85);
+    padding: 1px 2px;
+    border-radius: 2px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Critical sample */
+.gantt-legend-sample--critical {
+    --task-border-width: 3px;
+}
+
+/* “Линии” в легенде */
+.gantt-legend-line {
+    width: 3px;
+    height: 30px;
+    margin-right: 10px;
+    flex: 0 0 auto;
+}
+
+.gantt-legend-line--now {
+    background: #ffc107;
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
+}
+
+.gantt-legend-line--start {
+    width: 2px;
+    background: #198754;
+}
+
+.gantt-legend-line--deadline {
+    width: 2px;
+    background: transparent;
+    border-left: 2px dashed #dc3545;
+}
+
+/* SVG стрелки в легенде */
+.gantt-legend-dep {
+    width: 44px;
+    height: 16px;
+    margin-right: 10px;
+    overflow: visible;
+    flex: 0 0 auto;
+}
+.gantt-legend-dep path {
+    fill: none;
+    stroke-width: 2;
+    stroke: currentColor;
+}
