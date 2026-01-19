@@ -162,6 +162,18 @@ pub async fn delete_membership(
         }
     }
 
+    let owned_count = state
+        .membership_service
+        .count_owner_tasks_in_project(existing_membership.project_id, existing_membership.user_id)
+        .await?;
+
+    if owned_count > 0 {
+        return Err(AppError::Conflict(format!(
+            "Cannot remove member: user is owner of {} task(s). Reassign owner first.",
+            owned_count
+        )));
+    }
+
     state.membership_service.delete(membership_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
