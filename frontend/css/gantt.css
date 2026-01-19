@@ -20,29 +20,29 @@
 
     /* task tokens */
     --task-radius: 3px;
-    --task-progress: #198754;
+    --task-progress: #22c55e;
 
     /* status palette */
-    --st-planned-border: #6c757d;
-    --st-planned-bg: #e9ecef;
+    --st-planned-border: #64748b;
+    --st-planned-bg: #e2e8f0;
 
-    --st-inprogress-border: #6c757d;
-    --st-inprogress-bg: #e9ecef;
+    --st-inprogress-border: #2563eb;
+    --st-inprogress-bg: #dbeafe;
 
-    --st-needsreview-border: #fd7e14;
-    --st-needsreview-bg: #fefefe;
+    --st-needsreview-border: #d97706;
+    --st-needsreview-bg: #ffedd5;
 
-    --st-accepted-border: #198754;
-    --st-accepted-bg: #d1e7dd;
+    --st-accepted-border: #16a34a;
+    --st-accepted-bg: #dcfce7;
 
-    --st-rejected-border: #dc3545;
-    --st-rejected-bg: #e9ecef;
+    --st-rejected-border: #dc2626;
+    --st-rejected-bg: #fee2e2;
 
-    --st-blocked-border: #000000;
-    --st-blocked-bg: #e9ecef;
+    --st-blocked-border: #7c3aed;
+    --st-blocked-bg: #ede9fe;
 
-    --st-done-border: #adb5bd;
-    --st-done-bg: #ffffff;
+    --st-done-border: #94a3b8;
+    --st-done-bg: #f1f5f9;
 
     /* dependency colors */
     --dep-fs: #6c757d;
