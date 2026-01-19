@@ -141,7 +141,8 @@ body {
 }
 
 .toast-container {
-    z-index: 11;
+    position: fixed;
+    z-index: 3000;
 }
 
 .hidden {
