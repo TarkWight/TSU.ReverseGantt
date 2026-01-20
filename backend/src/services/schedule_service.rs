@@ -3,10 +3,13 @@ use chrono::{DateTime, Utc, Duration, NaiveDate};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
-use crate::domain::{Task, Schedule, Dependency, DepType};
+use crate::domain::{Task, Schedule, Dependency, DepType, Priority, Hardness};
 use crate::infra::errors::{AppError, AppResult};
-use crate::infra::repositories::ScheduleRepository;
-use crate::utils::Id;
+use crate::infra::repositories::{
+    ScheduleRepository,
+    AssignmentRepository,
+};
+use crate::utils::{generate_id, Id};
 
 struct TmpSchedule {
     es: DateTime<Utc>,
@@ -25,11 +28,15 @@ pub trait ScheduleService: Send + Sync {
 
 pub struct ScheduleServiceImpl {
     schedule_repo: Arc<dyn ScheduleRepository>,
+    assignment_repo: Arc<dyn AssignmentRepository>,
 }
 
 impl ScheduleServiceImpl {
-    pub fn new(schedule_repo: Arc<dyn ScheduleRepository>) -> Self {
-        Self { schedule_repo }
+    pub fn new(
+        schedule_repo: Arc<dyn ScheduleRepository>,
+        assignment_repo: Arc<dyn AssignmentRepository>,
+    ) -> Self {
+        Self { schedule_repo, assignment_repo }
     }
 
     fn topological_sort(&self, tasks: &[Task], successors: &HashMap<Id, Vec<&Dependency>>) -> Vec<Id> {
@@ -323,7 +330,99 @@ impl ScheduleServiceImpl {
             }
         }
     }
+
+    fn build_owner_virtual_dependencies(
+        tasks: &[Task],
+        owners_by_task: &HashMap<Id, Id>,
+    ) -> Vec<Dependency> {
+        let mut by_owner: HashMap<Id, Vec<&Task>> = HashMap::new();
+
+        for task in tasks {
+            if let Some(owner_id) = owners_by_task.get(&task.id) {
+                by_owner.entry(*owner_id).or_default().push(task);
+            }
+        }
+
+        let mut deps = Vec::new();
+
+        for (_owner, mut list) in by_owner {
+            if list.len() < 2 {
+                continue;
+            }
+
+            list.sort_by(|a, b| Self::compare_tasks_for_owner_chain(a, b));
+
+            list.reverse();
+
+            for pair in list.windows(2) {
+                deps.push(Dependency {
+                    id: generate_id(),
+                    from_task_id: pair[0].id,
+                    to_task_id: pair[1].id,
+                    dep_type: DepType::FS,
+                    min_gap: 0,
+                });
+            }
+        }
+
+        deps
+    }
+
+    fn priority_rank(p: Priority) -> i32 {
+        match p {
+            Priority::Critical => 4,
+            Priority::High => 3,
+            Priority::Normal => 2,
+            Priority::Low => 1,
+        }
+    }
+
+    fn hardness_rank(h: Hardness) -> i32 {
+        match h {
+            Hardness::Hard => 2,
+            Hardness::Soft => 1,
+        }
+    }
+
+    fn compare_tasks_for_owner_chain(a: &Task, b: &Task) -> std::cmp::Ordering {
+        if a.schedule.is_critical != b.schedule.is_critical {
+            return b.schedule.is_critical.cmp(&a.schedule.is_critical);
+        }
+
+        let aslk = a.schedule.slack.unwrap_or(i64::MAX);
+        let bslk = b.schedule.slack.unwrap_or(i64::MAX);
+        if aslk != bslk {
+            return aslk.cmp(&bslk);
+        }
+
+        let ap = Self::priority_rank(a.priority);
+        let bp = Self::priority_rank(b.priority);
+        if ap != bp {
+            return bp.cmp(&ap);
+        }
+
+        let ah = Self::hardness_rank(a.hardness);
+        let bh = Self::hardness_rank(b.hardness);
+        if ah != bh {
+            return bh.cmp(&ah);
+        }
+
+        let als = a.schedule.ls.unwrap_or(DateTime::<Utc>::MIN_UTC);
+        let bls = b.schedule.ls.unwrap_or(DateTime::<Utc>::MIN_UTC);
+        if als != bls {
+            return bls.cmp(&als);
+        }
+
+        let ad = a.estimated_duration.unwrap_or(0);
+        let bd = b.estimated_duration.unwrap_or(0);
+        if ad != bd {
+            return bd.cmp(&ad);
+        }
+
+        a.id.cmp(&b.id)
+    }
 }
+
 
 #[async_trait]
 impl ScheduleService for ScheduleServiceImpl {
@@ -348,6 +447,19 @@ impl ScheduleService for ScheduleServiceImpl {
 
         self.compute_full_schedule(&mut tasks, &dependencies, start_date, due_date)?;
 
+        let owners_by_task = self.assignment_repo
+            .find_owner_by_task_ids(&task_ids)
+            .await
+            .map_err(AppError::Internal)?;
+
+        let owner_deps = ScheduleServiceImpl::build_owner_virtual_dependencies(&tasks, &owners_by_task);
+
+        if !owner_deps.is_empty() {
+            let mut all_deps = dependencies.clone();
+            all_deps.extend(owner_deps);
+            self.compute_full_schedule(&mut tasks, &all_deps, start_date, due_date)?;
+        }
+
         let now = Utc::now();
         for task in &mut tasks {
             task.updated_at = now;
@@ -359,6 +471,7 @@ impl ScheduleService for ScheduleServiceImpl {
 
         Ok(tasks)
     }
+
 
     async fn compute_schedule(&self, tasks: &[Task]) -> AppResult<Vec<Schedule>> {
         Ok(tasks.iter().map(|t| t.schedule.clone()).collect())

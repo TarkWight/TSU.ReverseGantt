@@ -77,7 +77,11 @@ impl AppState {
             notification_repo.clone(),
             email_service.clone(),
         ));
-        let schedule_service: Arc<dyn ScheduleService> = Arc::new(ScheduleServiceImpl::new(schedule_repo.clone()));
+        let schedule_service: Arc<dyn ScheduleService> =
+            Arc::new(ScheduleServiceImpl::new(
+                schedule_repo.clone(),
+                assignment_repo.clone(),
+            ));
 
         let project_service: Arc<dyn ProjectService> = Arc::new(ProjectServiceImpl::new(
             project_repo.clone(),
