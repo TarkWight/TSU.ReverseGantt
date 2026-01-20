@@ -3,18 +3,25 @@ Object.assign(app, {
         document.getElementById('project-form').reset();
         document.getElementById('project-form-id').value = '';
         document.getElementById('project-modal-title').textContent = 'Create Project';
-        
-        const leaderGroup = document.getElementById('project-form-leader-group');
+
+        const leaderSelect = document.getElementById('project-form-leader-id');
+
         if (auth.isTeacher()) {
             leaderGroup.style.display = 'block';
-            document.getElementById('project-form-leader-id').required = true;
-            
+
+            leaderSelect.required = true;
+            leaderSelect.disabled = false;
+            leaderSelect.value = '';
+
             await this.populateLeaderDropdown();
         } else {
             leaderGroup.style.display = 'none';
-            document.getElementById('project-form-leader-id').required = false;
+
+            leaderSelect.required = false;
+            leaderSelect.disabled = true;
+            leaderSelect.value = '';
         }
-        
+
         const modal = new bootstrap.Modal(document.getElementById('project-modal'));
         modal.show();
     },
@@ -59,7 +66,14 @@ Object.assign(app, {
             document.getElementById('project-modal-title').textContent = 'Edit Project';
             
             document.getElementById('project-form-leader-group').style.display = 'none';
-            
+
+            const leaderGroup = document.getElementById('project-form-leader-group');
+            const leaderSelect = document.getElementById('project-form-leader-id');
+            leaderGroup.style.display = 'none';
+            leaderSelect.required = false;
+            leaderSelect.disabled = true;
+            leaderSelect.value = '';
+
             const modal = new bootstrap.Modal(document.getElementById('project-modal'));
             modal.show();
         }).catch(error => {
