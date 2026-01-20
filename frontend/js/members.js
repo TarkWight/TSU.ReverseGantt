@@ -59,7 +59,6 @@ Object.assign(app, {
             await app.loadProjectMembers();
             await app.showProjectTab('members');
         } catch (error) {
-            const errorMsg = app.formatError(error);
             app.showToast('Failed to add member', 'error', error);
             console.error('Error adding member:', error);
         }
@@ -73,18 +72,17 @@ Object.assign(app, {
         try {
             await api.deleteMembership(membershipId);
             app.showToast('Member removed successfully', 'success');
-            
-            // Reload members
+
             await app.loadProjectMembers();
             await app.showProjectTab('members');
         } catch (error) {
-            if (error.message.includes('Cannot remove the only leader') || 
+            if (error.message.includes('Cannot remove the only leader') ||
                 (error.data && error.data.message && error.data.message.includes('only leader'))) {
                 app.showToast('Cannot remove the only project leader', 'error');
+            } else if (error?.status !== 409) {
+                app.showToast('Failed to remove member', 'error');
             } else {
-                const errorMsg = app.formatError(error);
-                app.showToast('Failed to remove member', 'error', error);
-                console.error('Error removing member:', error);
+                app.showToast(error.message, 'error');
             }
         }
     },
@@ -101,7 +99,6 @@ Object.assign(app, {
             await app.loadProjectMembers();
             await app.showProjectTab('members');
         } catch (error) {
-            const errorMsg = app.formatError(error);
             app.showToast('Failed to change leader', 'error', error);
             console.error('Error changing leader:', error);
         }

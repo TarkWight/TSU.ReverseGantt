@@ -17,6 +17,7 @@ pub trait MembershipRepository: Send + Sync {
     async fn update_tags(&self, id: Id, tags: &[String]) -> anyhow::Result<bool>;
     async fn delete(&self, id: Id) -> anyhow::Result<bool>;
     async fn clear_leader(&self, project_id: Id) -> anyhow::Result<()>;
+    async fn count_owner_tasks_in_project(&self, project_id: Id, user_id: Id,) -> anyhow::Result<i64>;
 }
 
 pub struct PgMembershipRepository {
@@ -212,4 +213,25 @@ impl MembershipRepository for PgMembershipRepository {
 
         Ok(())
     }
+
+    async fn count_owner_tasks_in_project(&self, project_id: Id, user_id: Id) -> anyhow::Result<i64> {
+        let count: i64 = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*)::bigint AS "count!"
+            FROM assignments a
+            JOIN tasks t ON t.id = a.task_id
+            WHERE t.project_id = $1
+              AND a.user_id = $2
+              AND a.role = 'owner'
+            "#,
+            project_id,
+            user_id
+        )
+            .fetch_one(&self.pool)
+            .await
+            .context("Failed to count owner tasks in project")?;
+
+        Ok(count)
+    }
+
 }

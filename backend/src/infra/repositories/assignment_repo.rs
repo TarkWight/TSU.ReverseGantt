@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use async_trait::async_trait;
 use sqlx::PgPool;
 use anyhow::Context;
@@ -10,12 +11,20 @@ pub trait AssignmentRepository: Send + Sync {
     async fn find_by_task(&self, task_id: Id) -> anyhow::Result<Vec<Assignment>>;
     async fn find_by_user(&self, user_id: Id) -> anyhow::Result<Vec<Assignment>>;
     async fn find_by_id(&self, id: Id) -> anyhow::Result<Option<Assignment>>;
-    async fn find_by_task_and_user(&self, task_id: Id, user_id: Id) -> anyhow::Result<Option<Assignment>>;
+    async fn find_by_task_and_user(
+        &self,
+        task_id: Id,
+        user_id: Id
+    ) -> anyhow::Result<Option<Assignment>>;
     async fn find_owner(&self, task_id: Id) -> anyhow::Result<Option<Assignment>>;
     async fn insert(&self, assignment: &Assignment) -> anyhow::Result<()>;
     async fn delete(&self, id: Id) -> anyhow::Result<bool>;
     async fn delete_by_task_and_user(&self, task_id: Id, user_id: Id) -> anyhow::Result<bool>;
     async fn exists(&self, task_id: Id, user_id: Id, role: AssignRole) -> anyhow::Result<bool>;
+    async fn find_owner_by_task_ids(
+        &self,
+        task_ids: &[Id],
+    ) -> anyhow::Result<std::collections::HashMap<Id, Id>>;
 }
 
 pub struct PgAssignmentRepository {
@@ -200,4 +209,34 @@ impl AssignmentRepository for PgAssignmentRepository {
 
         Ok(exists)
     }
+
+    async fn find_owner_by_task_ids(
+        &self,
+        task_ids: &[Id],
+    ) -> anyhow::Result<HashMap<Id, Id>> {
+        if task_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = sqlx::query!(
+        r#"
+        SELECT task_id, user_id
+        FROM assignments
+        WHERE task_id = ANY($1)
+          AND role = 'owner'
+        "#,
+        task_ids as _
+    )
+            .fetch_all(&self.pool)
+            .await
+            .context("Failed to fetch owners by task ids")?;
+
+        let mut map = HashMap::new();
+        for r in rows {
+            map.insert(r.task_id, r.user_id);
+        }
+
+        Ok(map)
+    }
+
 }

@@ -28,6 +28,9 @@ pub enum AppError {
 
     #[error("Forbidden: {0}")]
     Forbidden(String),
+
+    #[error("Conflict found: {0}")]
+    Conflict(String),
 }
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -51,6 +54,7 @@ impl IntoResponse for AppError {
                     "Internal server error".to_string(),
                 )
             }
+            AppError::Conflict(msg) => (StatusCode::CONFLICT, msg),
         };
 
         let body = Json(json!({
