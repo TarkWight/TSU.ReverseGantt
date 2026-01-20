@@ -1,0 +1,454 @@
+/* ===== ReverseGantt: Gantt styles (clean) ===== */
+
+:root {
+    /* layout */
+    --g-border: #dee2e6;
+    --g-border-2: #adb5bd;
+    --g-bg: #ffffff;
+    --g-panel: #f8f9fa;
+
+    /* text */
+    --g-text: #212529;
+    --g-text-muted: #6c757d;
+    --g-text-meta: #495057;
+
+    /* accents */
+    --g-now: #ffc107;
+    --g-start: #198754;
+    --g-deadline: #dc3545;
+    --g-overflow-bg: rgba(220, 53, 69, 0.10);
+
+    /* task tokens */
+    --task-radius: 3px;
+    --task-progress: #22c55e;
+
+    /* status palette */
+    --st-planned-border: #64748b;
+    --st-planned-bg: #e2e8f0;
+
+    --st-inprogress-border: #2563eb;
+    --st-inprogress-bg: #dbeafe;
+
+    --st-needsreview-border: #d97706;
+    --st-needsreview-bg: #ffedd5;
+
+    --st-accepted-border: #16a34a;
+    --st-accepted-bg: #dcfce7;
+
+    --st-rejected-border: #dc2626;
+    --st-rejected-bg: #fee2e2;
+
+    --st-blocked-border: #7c3aed;
+    --st-blocked-bg: #ede9fe;
+
+    --st-done-border: #94a3b8;
+    --st-done-bg: #f1f5f9;
+
+    /* dependency colors */
+    --dep-fs: #6c757d;
+    --dep-ss: #0d6efd;
+    --dep-ff: #6f42c1;
+    --dep-sf: #20c997;
+}
+
+/* ===== Tasks (bars) ===== */
+
+.gantt-task-bar {
+    background: var(--task-bg, var(--st-planned-bg));
+    border: var(--task-border-width, 1px) solid var(--task-border, var(--st-planned-border));
+    border-radius: var(--task-radius);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Status label next to bar (optional) */
+.gantt-task-meta {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    padding: 0 2px;
+}
+.gantt-task-meta--status { color: var(--g-text-meta); }
+.gantt-task-meta--progress { color: var(--g-text-muted); }
+
+/* Progress overlay (for inprogress / blocked) */
+.gantt-task-progress {
+    position: absolute;
+    inset: 0;
+    width: var(--progress, 0%);
+    height: 100%;
+    background: var(--task-progress);
+    border-radius: var(--task-radius);
+    z-index: 1;
+    display: none;
+}
+.gantt-task--has-progress .gantt-task-progress {
+    display: block;
+}
+
+/* Badge (Review / Blocked) */
+.gantt-task-badge {
+    position: absolute;
+    right: 2px;
+    top: 1px;
+    font-size: 0.6rem;
+    color: var(--g-text-meta);
+    background: rgba(255, 255, 255, 0.85);
+    padding: 1px 3px;
+    border-radius: 2px;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Stripes (Rejected) */
+.gantt-task--striped::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 4px,
+            rgba(0, 0, 0, 0.10) 4px,
+            rgba(0, 0, 0, 0.10) 8px
+    );
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Critical */
+.gantt-task--critical { --task-border-width: 3px; }
+
+/* Overflow: red border */
+.gantt-task--overflow { --task-border: var(--g-deadline); }
+
+/* ===== Status palette (sets --task-*) ===== */
+
+.gantt-task--planned    { --task-border: var(--st-planned-border);    --task-bg: var(--st-planned-bg); }
+.gantt-task--inprogress { --task-border: var(--st-inprogress-border); --task-bg: var(--st-inprogress-bg); }
+.gantt-task--needsreview{ --task-border: var(--st-needsreview-border);--task-bg: var(--st-needsreview-bg); }
+.gantt-task--accepted   { --task-border: var(--st-accepted-border);   --task-bg: var(--st-accepted-bg); }
+.gantt-task--rejected   { --task-border: var(--st-rejected-border);   --task-bg: var(--st-rejected-bg); }
+.gantt-task--blocked    { --task-border: var(--st-blocked-border);    --task-bg: var(--st-blocked-bg); }
+.gantt-task--done       { --task-border: var(--st-done-border);       --task-bg: var(--st-done-bg); }
+
+/* ===== Layout / containers ===== */
+
+.gantt-wrapper {
+    display: flex;
+    border: 1px solid var(--g-border);
+}
+
+.gantt-task-list {
+    background: var(--g-panel);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.gantt-task-list-header {
+    padding: 8px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--g-border);
+    background: var(--g-bg);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.gantt-task-list-body {
+    position: relative;
+    overflow-y: auto;
+}
+
+.gantt-task-item {
+    position: absolute;
+    left: 0;
+    right: 0;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.gantt-task-item-title {
+    font-weight: 500;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gantt-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--g-border);
+    cursor: col-resize;
+    z-index: 20;
+    border-right: 1px solid var(--g-border-2);
+}
+
+.gantt-grid-wrapper {
+    flex: 1;
+    overflow-x: auto;
+    position: relative;
+    min-width: 0;
+}
+
+.gantt-header {
+    position: relative;
+    z-index: 10;
+    background: var(--g-bg);
+    border-bottom: 2px solid var(--g-border);
+}
+
+.gantt-header-row {
+    position: relative;
+    height: 100%;
+}
+
+/* ===== Time header cells ===== */
+
+.gantt-time-cell {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    padding: 8px;
+    text-align: center;
+    border-right: 1px solid var(--g-border);
+    font-size: 0.85rem;
+    background: var(--g-panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== Grid body wrapper ===== */
+
+.gantt-grid-body {
+    position: relative;
+}
+
+/* ===== Vertical lines ===== */
+
+.gantt-time-division {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    border-right: 1px solid var(--g-border);
+    pointer-events: none;
+}
+
+/* ===== Vertical markers (now/start/deadline) ===== */
+
+.gantt-vline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.gantt-now-line-header,
+.gantt-now-line {
+    width: 3px;
+    background: var(--g-now);
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
+}
+
+.gantt-now-line-header { z-index: 12; }
+.gantt-now-line        { z-index: 6;  }
+
+.gantt-now-label {
+    position: absolute;
+    top: 2px;
+    background: var(--g-now);
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    z-index: 13;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.gantt-start-line {
+    width: 2px;
+    background: var(--g-start);
+    z-index: 4;
+    pointer-events: none;
+}
+
+.gantt-deadline-line {
+    width: 2px;
+    z-index: 4;
+    pointer-events: none;
+    border-left: 2px dashed var(--g-deadline);
+    background: transparent;
+}
+
+/* Overflow area */
+.gantt-overflow-area {
+    position: absolute;
+    top: 0;
+    background: var(--g-overflow-bg);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ===== Dependencies overlay ===== */
+
+.gantt-deps-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.gantt-dep-path {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+/* Types = color via currentColor */
+.gantt-dep--fs { color: var(--dep-fs); }
+.gantt-dep--ss { color: var(--dep-ss); }
+.gantt-dep--ff { color: var(--dep-ff); }
+.gantt-dep--sf { color: var(--dep-sf); }
+
+/* ===== Legend ===== */
+
+.gantt-legend-sample {
+    width: 40px;
+    height: 20px;
+    border-radius: var(--task-radius);
+    margin-right: 10px;
+    position: relative;
+    flex: 0 0 auto;
+
+    /* allow reuse of task variables in legend samples */
+    background: var(--task-bg, var(--st-planned-bg));
+    border: var(--task-border-width, 1px) solid var(--task-border, var(--st-planned-border));
+}
+
+.gantt-legend-sample--progress::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: var(--task-progress);
+    border-radius: var(--task-radius) 0 0 var(--task-radius);
+    z-index: 1;
+}
+
+.gantt-legend-badge {
+    position: absolute;
+    right: 2px;
+    top: 1px;
+    font-size: 0.5rem;
+    color: var(--g-text-meta);
+    background: rgba(255,255,255,0.85);
+    padding: 1px 2px;
+    border-radius: 2px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* “Lines” in legend */
+.gantt-legend-line {
+    height: 30px;
+    margin-right: 10px;
+    flex: 0 0 auto;
+}
+
+.gantt-legend-line--now {
+    width: 3px;
+    background: var(--g-now);
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.8);
+}
+.gantt-legend-line--start {
+    width: 2px;
+    background: var(--g-start);
+}
+.gantt-legend-line--deadline {
+    width: 2px;
+    background: transparent;
+    border-left: 2px dashed var(--g-deadline);
+}
+
+/* SVG arrows in legend */
+.gantt-legend-dep {
+    width: 44px;
+    height: 16px;
+    margin-right: 10px;
+    overflow: visible;
+    flex: 0 0 auto;
+}
+
+/* ===== ReverseGantt: Step 1 — make statuses more distinguishable ===== */
+
+/* 1) NeedsReview: dashed border + subtle warm tint */
+.gantt-task--needsreview {
+    border-style: dashed;
+    border-width: var(--task-border-width, 1px);
+    box-shadow: 0 0 0 1px rgba(253, 126, 20, 0.15) inset;
+}
+
+/* 2) Blocked: keep strong border + add diagonal hatch overlay */
+.gantt-task--blocked {
+    border-width: var(--task-border-width, 2px);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
+.gantt-task--blocked::after {
+    /* hatch overlay on top of bg/progress */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+            135deg,
+            rgba(0, 0, 0, 0.14),
+            rgba(0, 0, 0, 0.14) 6px,
+            rgba(255, 255, 255, 0.00) 6px,
+            rgba(255, 255, 255, 0.00) 12px
+    );
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 2; /* above progress (z=1), below badge (z=3) */
+}
+
+/* 3) Rejected: stronger stripes (already striped) + slight red glow */
+.gantt-task--rejected.gantt-task--striped {
+    box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.18) inset;
+}
+
+/* 4) Done: visually "powered off" */
+.gantt-task--done {
+    opacity: 0.72;
+}
+
+/* 5) Planned: slightly lighter fill so it doesn’t look like InProgress */
+.gantt-task--planned {
+    filter: brightness(1.03);
+}
+
+/* 6) InProgress: add subtle inner ring to separate it from Planned */
+.gantt-task--inprogress {
+    box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.14) inset;
+}
+
+/* 7) Accepted: slightly stronger presence */
+.gantt-task--accepted {
+    box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.12) inset;
+}

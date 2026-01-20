@@ -18,6 +18,7 @@ pub trait MembershipService: Send + Sync {
     async fn delete(&self, membership_id: Id) -> AppResult<()>;
     async fn check_user_is_leader(&self, project_id: Id, user_id: Id) -> AppResult<bool>;
     async fn get_leader(&self, project_id: Id) -> AppResult<Option<Membership>>;
+    async fn count_owner_tasks_in_project(&self, project_id: Id, user_id: Id) -> AppResult<i64>;
 }
 
 pub struct MembershipServiceImpl {
@@ -136,5 +137,15 @@ impl MembershipService for MembershipServiceImpl {
             .find_leader(project_id)
             .await
             .map_err(AppError::Internal)
+    }
+
+    async fn count_owner_tasks_in_project(&self, project_id: Id, user_id: Id) -> AppResult<i64> {
+        self.membership_repo
+            .count_owner_tasks_in_project(
+                project_id,
+                user_id,
+            )
+        .await
+        .map_err(AppError::Internal)
     }
 }

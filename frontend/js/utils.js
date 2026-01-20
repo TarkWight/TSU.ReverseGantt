@@ -42,28 +42,57 @@ const utils = {
         const toast = document.getElementById('toast');
         const toastBody = document.getElementById('toast-body');
         const toastTitle = document.getElementById('toast-title');
-        
+
         let fullMessage = message;
+
         if (details) {
-            if (typeof details === 'string') {
-                fullMessage += '\n' + details;
-            } else if (details.status) {
-                fullMessage += ` (Status: ${details.status})`;
+            if (details instanceof Error) {
+                if (details.message) {
+                    fullMessage += `\n${details.message}`;
+                }
+            }
+            else if (typeof details === 'object') {
+                const apiMessage =
+                    details.message ||
+                    details.error ||
+                    details.data?.message ||
+                    details.data?.error;
+
+                if (apiMessage) {
+                    fullMessage += `\n${apiMessage}`;
+                } else if (details.status) {
+                    fullMessage += ` (Status: ${details.status})`;
+                }
+            }
+            else if (typeof details === 'string') {
+                fullMessage += `\n${details}`;
             }
         }
-        
+
         toastBody.textContent = fullMessage;
-        toastTitle.textContent = type === 'error' ? 'Error' : type === 'success' ? 'Success' : 'Info';
-        
-        toast.className = `toast ${type === 'error' ? 'bg-danger text-white' : type === 'success' ? 'bg-success text-white' : ''}`;
-        
+        toastTitle.textContent =
+            type === 'error' ? 'Error' :
+                type === 'success' ? 'Success' :
+                    'Info';
+
+        toast.className = `toast ${
+            type === 'error'
+                ? 'bg-danger text-white'
+                : type === 'success'
+                    ? 'bg-success text-white'
+                    : ''
+        }`;
+
         toastBody.style.maxHeight = '200px';
         toastBody.style.overflowY = 'auto';
         toastBody.style.whiteSpace = 'pre-wrap';
-        
-        const bsToast = new bootstrap.Toast(toast, { delay: type === 'error' ? 8000 : 5000 });
+
+        const bsToast = new bootstrap.Toast(toast, {
+            delay: type === 'error' ? 8000 : 5000
+        });
         bsToast.show();
     },
+
 
     escapeCsvField(field) {
         if (field === null || field === undefined) return '';
