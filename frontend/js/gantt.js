@@ -16,7 +16,6 @@ Object.assign(app, {
     },
 
     getGanttDepColors() {
-        // Read CSS variables so SVG markers match the same colors as lines/legend.
         const rs = getComputedStyle(document.documentElement);
         const pick = (name, fallback) => {
             const v = (rs.getPropertyValue(name) || '').trim();
@@ -120,7 +119,7 @@ Object.assign(app, {
             const dependencyLists = await Promise.all(
                 items.map(i => api.getDependencies(i.task.id).catch(() => []))
             );
-            const depMap = new Map(); // depId -> dep
+            const depMap = new Map();
             dependencyLists.flat().forEach(dep => {
                 const depId = dep.id || `${dep.fromTaskId || dep.from_task_id}->${dep.toTaskId || dep.to_task_id}`;
                 if (!depMap.has(depId)) depMap.set(depId, dep);
@@ -140,22 +139,27 @@ Object.assign(app, {
             const rangeMs = gridEnd.getTime() - minTime.getTime();
             const rangeHours = rangeMs / (1000 * 60 * 60);
 
-            let timeDivisionHours;
-            let pxPerHour;
+            const CELL_PX = 140;
+            const MAX_GRID_PX = 2600;
 
-            if (rangeHours <= 12) {
-                timeDivisionHours = 1;
-                pxPerHour = 60;
-            } else if (rangeHours <= 48) {
-                timeDivisionHours = 6;
-                pxPerHour = 40;
-            } else if (rangeHours <= 168) {
-                timeDivisionHours = 12;
-                pxPerHour = 30;
-            } else {
-                timeDivisionHours = 24;
-                pxPerHour = 20;
+            let timeDivisionHours;
+            if (rangeHours <= 12) timeDivisionHours = 1;
+            else if (rangeHours <= 48) timeDivisionHours = 6;
+            else if (rangeHours <= 168) timeDivisionHours = 12;
+            else if (rangeHours <= 24 * 30) timeDivisionHours = 24;
+            else timeDivisionHours = 24 * 7;
+
+            const steps = [1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720];
+            const nextStep = (h) => steps.find(s => s > h) || h * 2;
+
+            const columnsCount = (h) => Math.ceil(rangeHours / h);
+            while (columnsCount(timeDivisionHours) * CELL_PX > MAX_GRID_PX) {
+                timeDivisionHours = nextStep(timeDivisionHours);
+                if (timeDivisionHours > 24 * 365) break;
             }
+
+            const pxPerHour = CELL_PX / timeDivisionHours;
+
 
             const pxPerMs = pxPerHour / (1000 * 60 * 60);
             const timeDivisionMs = timeDivisionHours * 60 * 60 * 1000;
@@ -229,7 +233,6 @@ Object.assign(app, {
                 const rightPx = timeToPx(timeGrid[index + 1]);
                 const width = Math.max(1, rightPx - leftPx);
 
-                // ВАЖНО: timeLabel реально должен быть определён
                 const timeLabel = (timeDivisionHours >= 24)
                     ? this.formatLocal(time, { year: 'numeric', month: '2-digit', day: '2-digit' })
                     : this.formatLocal(time, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -239,7 +242,7 @@ Object.assign(app, {
 
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
                 const nowLabel = `Now ${this.formatLocal(now, { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-                html += `<div class="gantt-now-line-header" style="left:${nowPx}px;"></div>`;
+                html += `<div class="gantt-vline gantt-now-line-header" style="left:${nowPx}px;"></div>`;
                 html += `<div class="gantt-now-label" style="left:${Math.max(0, nowPx - 35)}px;">${this.escapeHtml(nowLabel)}</div>`;
             }
 
@@ -250,7 +253,7 @@ Object.assign(app, {
 
             if (projectStartDate && projectStartDate.getTime() >= minTime.getTime() && projectStartDate.getTime() <= gridEnd.getTime()) {
                 const startPx = timeToPx(projectStartDate);
-                html += `<div class="gantt-start-line" style="left:${startPx}px;"></div>`;
+                html += `<div class="gantt-vline gantt-start-line" style="left:${startPx}px;"></div>`;
             }
 
             if (projectStartDate && projectStartDate.getTime() >= minTime.getTime()) {
@@ -262,11 +265,11 @@ Object.assign(app, {
 
             if (projectDueDate && projectDueDate.getTime() <= gridEnd.getTime()) {
                 const deadlinePx = timeToPx(projectDueDate);
-                html += `<div class="gantt-deadline-line" style="left:${deadlinePx}px;"></div>`;
+                html += `<div class="gantt-vline gantt-deadline-line" style="left:${deadlinePx}px;"></div>`;
             }
 
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
-                html += `<div class="gantt-now-line" style="left:${nowPx}px;"></div>`;
+                html += `<div class="gantt-vline gantt-deadline-line" style="left:${deadlinePx}px;"></div>`;
             }
 
             timeGrid.forEach((time, index) => {
