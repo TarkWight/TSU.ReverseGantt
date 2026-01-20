@@ -136,55 +136,53 @@ Object.assign(app, {
                 ? projectDueDate
                 : maxTime;
 
-            const rangeMs = gridEnd.getTime() - minTime.getTime();
-            const rangeHours = rangeMs / (1000 * 60 * 60);
+            const startOfMonthUTC = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+            const endOfMonthUTC   = (d) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+
+            const nowUtc = new Date();
+            const effectiveEnd = (nowUtc.getTime() > gridEnd.getTime()) ? nowUtc : gridEnd;
+
+            const minTimeForGrid = startOfMonthUTC(minTime);
+            const gridEndForGrid = endOfMonthUTC(effectiveEnd);
+
+            const scaleRangeMs = gridEnd.getTime() - minTime.getTime();
+            const scaleRangeHours = scaleRangeMs / (1000 * 60 * 60);
+
+            const displayRangeMs = gridEndForGrid.getTime() - minTimeForGrid.getTime();
+            const displayRangeHours = displayRangeMs / (1000 * 60 * 60);
 
             const CELL_PX = 140;
-            const MAX_GRID_PX = 2600;
 
             let timeDivisionHours;
-            if (rangeHours <= 12) timeDivisionHours = 1;
-            else if (rangeHours <= 48) timeDivisionHours = 6;
-            else if (rangeHours <= 168) timeDivisionHours = 12;
-            else if (rangeHours <= 24 * 30) timeDivisionHours = 24;
+            if (scaleRangeHours <= 12) timeDivisionHours = 1;
+            else if (scaleRangeHours <= 48) timeDivisionHours = 6;
+            else if (scaleRangeHours <= 168) timeDivisionHours = 12;
+            else if (scaleRangeHours <= 24 * 30) timeDivisionHours = 24;
             else timeDivisionHours = 24 * 7;
 
-            const steps = [1, 2, 3, 6, 12, 24, 48, 72, 168, 336, 720];
-            const nextStep = (h) => steps.find(s => s > h) || h * 2;
-
-            const columnsCount = (h) => Math.ceil(rangeHours / h);
-            while (columnsCount(timeDivisionHours) * CELL_PX > MAX_GRID_PX) {
-                timeDivisionHours = nextStep(timeDivisionHours);
-                if (timeDivisionHours > 24 * 365) break;
-            }
-
             const pxPerHour = CELL_PX / timeDivisionHours;
-
-
             const pxPerMs = pxPerHour / (1000 * 60 * 60);
             const timeDivisionMs = timeDivisionHours * 60 * 60 * 1000;
 
-            const gridStart = new Date(minTime);
+            const gridStart = new Date(minTimeForGrid);
             const startHour = gridStart.getHours();
             const roundedHour = Math.floor(startHour / timeDivisionHours) * timeDivisionHours;
             gridStart.setHours(roundedHour, 0, 0, 0);
 
-            const timeToPx = (time) => {
-                return (time.getTime() - gridStart.getTime()) * pxPerMs;
-            };
+            const timeToPx = (time) => (time.getTime() - gridStart.getTime()) * pxPerMs;
 
             const timeGrid = [];
             let currentTime = new Date(gridStart);
-
-            while (currentTime <= gridEnd) {
+            while (currentTime <= gridEndForGrid) {
                 timeGrid.push(new Date(currentTime));
                 currentTime = new Date(currentTime.getTime() + timeDivisionMs);
             }
-            if (timeGrid.length === 0 || timeGrid[timeGrid.length - 1].getTime() < gridEnd.getTime()) {
-                timeGrid.push(new Date(gridEnd));
+            if (timeGrid.length === 0 || timeGrid[timeGrid.length - 1].getTime() < gridEndForGrid.getTime()) {
+                timeGrid.push(new Date(gridEndForGrid));
             }
 
-            const totalGridWidth = timeToPx(gridEnd);
+            const totalGridWidth = Math.ceil(timeToPx(gridEndForGrid));
+
 
             const rowHeight = 34;
             const rowGap = 14;
@@ -251,25 +249,27 @@ Object.assign(app, {
 
             html += `<div class="gantt-grid-body" style="height:${gridHeight}px; width:${totalGridWidth}px;">`;
 
-            if (projectStartDate && projectStartDate.getTime() >= minTime.getTime() && projectStartDate.getTime() <= gridEnd.getTime()) {
+            if (projectStartDate &&
+                projectStartDate.getTime() >= minTimeForGrid.getTime() &&
+                projectStartDate.getTime() <= gridEndForGrid.getTime()) {
                 const startPx = timeToPx(projectStartDate);
                 html += `<div class="gantt-vline gantt-start-line" style="left:${startPx}px;"></div>`;
             }
 
-            if (projectStartDate && projectStartDate.getTime() >= minTime.getTime()) {
+            if (projectStartDate && projectStartDate.getTime() >= minTimeForGrid.getTime()) {
                 const overflowWidth = timeToPx(projectStartDate);
                 if (overflowWidth > 0) {
                     html += `<div class="gantt-overflow-area" style="left:0; width:${overflowWidth}px; height:${gridHeight}px;"></div>`;
                 }
             }
 
-            if (projectDueDate && projectDueDate.getTime() <= gridEnd.getTime()) {
+            if (projectDueDate && projectDueDate.getTime() <= gridEndForGrid.getTime()) {
                 const deadlinePx = timeToPx(projectDueDate);
                 html += `<div class="gantt-vline gantt-deadline-line" style="left:${deadlinePx}px;"></div>`;
             }
 
             if (nowPx >= 0 && nowPx <= totalGridWidth) {
-                html += `<div class="gantt-vline gantt-deadline-line" style="left:${deadlinePx}px;"></div>`;
+                html += `<div class="gantt-vline gantt-now-line" style="left:${nowPx}px;"></div>`;
             }
 
             timeGrid.forEach((time, index) => {
